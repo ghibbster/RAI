@@ -49,6 +49,7 @@ public class Hypothesis {
             //System.out.println("considering merge between " + rs + " and " + bs);
             score = 0.;
             int n = 0;
+            //System.out.println("couple " + rs.getId() + " " + bs.getId());
             Iterator<Future> blueFutures = bs.getFuturesIterator();
             while (blueFutures.hasNext()){
                 Future blueFuture = blueFutures.next();
@@ -57,11 +58,13 @@ public class Hypothesis {
                 //System.out.println("\t" + blueFuture + " " + redFuture + " " + redFuture.getAvgPrefixEuclideanScore(blueFuture));
                 n += 1;
             }
+            System.out.println("SPLIT");
             Iterator<Future> redFutures = rs.getFuturesIterator();
             while (redFutures.hasNext()){
                 Future redFuture = redFutures.next();
                 Future blueFuture = bs.getClosestFuture(redFuture);
                 score += blueFuture.getAvgPrefixEuclideanScore(redFuture);
+                //System.out.println("\t" + redFuture + " " + blueFuture + " " + redFuture.getAvgPrefixEuclideanScore(blueFuture));
                 n += 1;
             }
             if (n == 0)
@@ -70,7 +73,7 @@ public class Hypothesis {
         }
 
         public boolean isCompatible(double alpha) {
-            return redState.isLeaf() && blueState.isLeaf() || score < alpha;
+            return (redState.isLeaf() && blueState.isLeaf()) || score < alpha;
         }
 
         //UTILITY
@@ -196,7 +199,6 @@ public class Hypothesis {
             bs.removeIngoing(t);
             rs.addIngoing(t);
         }
-        // handling futures
         Iterator<Future> fIterator = bs.getFuturesIterator();
         while (fIterator.hasNext()){
             Future f = fIterator.next();
@@ -263,48 +265,76 @@ public class Hypothesis {
         // Se rs è NON red allora aggiungo a prescindere se ci sia sovrapposizione tra transizioni.
         // Se rs è red, allora ci sarà per forza sovrapposizione (rs ha transizioni che coprono tutto il dominio). In
         // questo caso si aggiungono i valori della transizione di bs alla corrispettiva di rs, e si aggiungono le
-        // le transizioni uscenti dalla destinazione (bianca) della transizione uscente da bs.
+        // le transizioni uscenti dalla destinazione (bianca) della transizione uscente da bs (chiamata ricorsiva).
+        // NOTA BENE:
+        // facendo esperimenti su training file che non sono stati generati con una sliding window, abbiamo scoperto che
+        // fondamentalmente puo capitare un fold tra un blu state ed un red state foglia che non ha transizioni uscenti.
+        // In questo caso il red state è per definizione cristallizato, quindi non è possibile aggiungergli transizioni
+        // (che non sono state  "totalizzate" oltretutto, perché la totalizzazione avviene all'atto della promozione
+        // a red. Quindi, per ora, si decide di far terminare il fold senza aggiungere i futures e scartando in sostanza
+        // il sottoalbero radicato nel blue state nel caso si giunga ad una foglia rossa. Se lo stato rosso non è foglia
+        // allora si cerca di attaccare il sottoalbero blu a qualche suo figlio non red. Anche se si trova questo figlio,
+        // i futuri non possono essere aggiornati altrimenti si crea un conflitto con gli avi che sono in sostanza
+        // non aggiornati. Se stiamo foldando è perché qualche avo di bs è stato mergiato con un avo di rs, quindi
+        // i futuri sono stati considerati compatibili o simili.
+        //
         System.out.println("folding " + bs + " in " + rs);
         Iterator<Transition> iterator = bs.getOutgoingIterator();
         while (iterator.hasNext()) {
             // for each outgoing transition of BLUE (bt)
             Transition bt = iterator.next();
             iterator.remove();
-            if (rs instanceof RedState){
+            if (rs instanceof RedState && ! rs.isLeaf()) {
                 Transition overlapping = rs.getOutgoing(bt.getMu());
-                // nota bene: overlapping non può essere NULL.
                 // nota bene: ocio che overlapping quì può terminare anche
                 // in un RED state perché c'è stato il merge prima !!
                 overlapping.addAll(bt);
                 //handling futures
                 State dest = bt.getDestination();
-                if (dest != null){
+                if (dest != null && ! dest.equals(rs)){
                     Double firstValue = bt.getMu();
                     Iterator<Future> fit = dest.getFuturesIterator();
-                    while (fit.hasNext()){
+                    while (fit.hasNext()) {
                         Future f = fit.next();
                         fit.remove();
                         f.addFirst(firstValue);
                         rs.addFuture(f);
                     }
+                    // recursive call. Overlapping.getDestination() cannot return null,
+                    // we constructed the prefix tree
+                    // in order to avoid that
+                    fold(overlapping.getDestination(), dest);
                 }
-                fold(overlapping.getDestination(), dest);
-            }else{
+            } else {
+                // RS IS BLUE, WHITE, OR RED-LEAF
+                // DEST CAN BE OF ANY COLOR
                 bt.setSource(rs);
-                //handling futures
+                // handling futures
                 State dest = bt.getDestination();
-                if (dest != null){
+                if (dest != null) {
                     Double firstValue = bt.getMu();
                     Iterator<Future> fit = dest.getFuturesIterator();
-                    while (fit.hasNext()){
+                    while (fit.hasNext()) {
                         Future f = fit.next();
                         fit.remove();
                         f.addFirst(firstValue);
                         rs.addFuture(f);
                     }
                 }
-                //attaching
+                // attaching
                 rs.addOutgoing(bt);
+                // possible promotions
+                if (rs instanceof RedState) {
+                    ((RedState) rs).cluster(alpha);
+                    if (dest instanceof WhiteState)
+                        promote(dest);
+                    else if (dest instanceof BlueState)
+                        new CandidateMerge((RedState) rs, (BlueState) dest);
+                }
+                else if (rs instanceof BlueState && dest instanceof RedState)
+                        new CandidateMerge((RedState) dest, (BlueState) rs);
+                else if (rs instanceof WhiteState && dest instanceof RedState)
+                    promote(rs);
             }
         }
     }
@@ -339,10 +369,11 @@ public class Hypothesis {
     }
 
 
-    public void minimize(String outPath){
-        toDot(outPath + ".prefix1.dot");
+    //public void minimize(String outPath){
+    public void minimize(){
+        //toDot(outPath + ".prefix1.dot");
         root = promote(promote(root));
-        toDot(outPath + ".prefix2.dot");
+        //toDot(outPath + ".prefix2.dot");
         while (! merges.isEmpty()){
             CandidateMerge pair = merges.poll();
             BlueState bs = pair.blueState;
@@ -428,7 +459,6 @@ public class Hypothesis {
                 writer.write(" " + fields[fields.length - 1].split("/")[0] + "/" + predict(past) + "\n");
             }
             writer.close();
-            writer.close();
             reader.close();
         } catch (IOException e) {
             e.printStackTrace();
@@ -450,23 +480,35 @@ public class Hypothesis {
     //unit test
     public static void main(String[] args){
         //windowLength();
-        generalLearning();
+        windspeedMain();
+//        String train = "/media/npellegrino/DEDEC851DEC8241D/CTU-13/datasets/with_background/cleaned/9/147.32.84.191.csv.rai";
+//        double threshold = 1.18185751877 * 3;
+//        String dot = train + ".DOT";
+//        learnRA(train, threshold, dot);
     }
 
-    public static void generalLearning(){
+    public static void learnRA(String trainPath, double threshold, String dotPath){
+        Hypothesis h = new Hypothesis(trainPath, threshold);
+        h.minimize();
+        h.toDot(dotPath);
+        System.out.println("#states: " + h.redStates.size());
+    }
+
+    public static void windspeedMain(){
         //String path = "/home/npellegrino/LEMMA/state_merging_regressor/data/toys/verytoy/verytoy.txt";
         //String path = "/home/npellegrino/LEMMA/state_merging_regressor/data/toys/sinus/sinus.lev3.txt";
         //String path = "/home/npellegrino/LEMMA/state_merging_regressor/data/windspeed/1hour/train/autumn.train";
         String path = "/home/npellegrino/LEMMA/state_merging_regressor/data/windspeed/1hour/train/qin.train";
-        Hypothesis h = new Hypothesis(path, .3); // .2 for qin, 5. for verytoy
+        Hypothesis h = new Hypothesis(path, .3); // .2 for qin, 5. for verytoy, .3 for qin 1h data in new version
         System.out.println("start minimizing");
-        h.minimize(path + ".minimized.dot");
+        //h.minimize(path + ".minimized.dot");
+        h.minimize();
         h.toDot(path + ".minimized.dot");
         System.out.println("red states: " + h.redStates.size());
 
 //        //PREDICTION
 //        String obspath = "/home/npellegrino/LEMMA/state_merging_regressor/data/windspeed/1hour/test/qin.test";
-//        String respath = "/home/npellegrino/LEMMA/state_merging_regressor/data/windspeed/1hour/test/qin_mie.test";
+//        String respath = "/home/npellegrino/LEMMA/state_merging_regressor/data/windspeed/1hour/test/qin_mie_newversion.test";
 //        h.exportPredictions(obspath, respath);
 
         //LOADING FROM DOT

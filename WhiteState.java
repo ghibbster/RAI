@@ -66,8 +66,23 @@ public class WhiteState implements State{
 //    }
 
     @Override
-    public Double getMu(){
-        return (mu == null)?(0.):(mu);
+    public Double getMu() {
+        if (mu != null)
+            return mu;
+        else{
+            mu = 0.;
+            int size = 0;
+            for (Transition t : outgoing)
+                for (Double v : t) {
+                    mu += v;
+                    size += 1;
+                }
+            if (size == 0)
+                mu = 0.;
+            else
+                mu /= (double) size;
+            return mu;
+        }
     }
 
     public void setMu(double mu){
