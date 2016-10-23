@@ -216,13 +216,14 @@ public class Hypothesis {
 
     public State promote(State s){
         System.out.println("going to promote " + s);
-        s.promote();
         if (s.isWhite()){
+            s.promote();
             for (State rs : redStates)
                 registerPair(new CandidateMerge(rs, s));
             return s;
         }
         if (s.isBlue()){
+            s.promote();
             // promote all white sons to blue
             Iterator<Transition> iterator = s.getOutgoingIterator();
             while (iterator.hasNext()){
@@ -362,8 +363,8 @@ public class Hypothesis {
     }
 
     public static void learnRA(){
-        String train = "/home/npellegrino/PycharmProjects/pada/src/dot_reader/5states.dot.sample";
-        double threshold = 0.0002;
+        String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/toys/verytoy/verytoy.txt";
+        double threshold = 5.;
         String dot = train + ".DOT";
         Hypothesis h = new Hypothesis(train, threshold);
         h.minimize();
