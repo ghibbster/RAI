@@ -70,6 +70,7 @@ public class Future implements Iterable<Double>, Comparable<Future>{
 //    }
 
     public double getAvgPrefixEuclideanScore(Future f){
+        // in realtà è un errore quadratico medio
         double result = 0.;
         if (f == null || f.size() == 0){
             for (Double v : values)

@@ -30,23 +30,27 @@ public class CandidateMerge implements Comparable<CandidateMerge>{
     private void computeScore(State rs, State bs){
         score = 0.;
         int n = 0;
+        System.out.println(">>>");
         Iterator<Future> blueFutures = bs.getFuturesIterator();
         while (blueFutures.hasNext()){
             Future blueFuture = blueFutures.next();
             Future redFuture = rs.getClosestFuture(blueFuture);
             score += redFuture.getAvgPrefixEuclideanScore(blueFuture);
+            System.out.println(blueFuture + " " + redFuture + " " + redFuture.getAvgPrefixEuclideanScore(blueFuture));
             n += 1;
         }
-        //System.out.println("SPLIT");
+        System.out.println("<<<");
         Iterator<Future> redFutures = rs.getFuturesIterator();
         while (redFutures.hasNext()){
             Future redFuture = redFutures.next();
             Future blueFuture = bs.getClosestFuture(redFuture);
             score += blueFuture.getAvgPrefixEuclideanScore(redFuture);
+            System.out.println(redFuture + " " + blueFuture + " " + blueFuture.getAvgPrefixEuclideanScore(redFuture));
             n += 1;
         }
         if (n == 0)
             score = Double.POSITIVE_INFINITY;
+        System.out.println(score + " " + n + " " + (score /= (double) n));
         score /= (double) n;
     }
 

@@ -263,8 +263,28 @@ public class State{
         if (! equals(t.getSource()))
             throw new IllegalArgumentException("Source state should be this");
         if (! outgoing.contains(t)){
-            outgoing.add(t);
-            t.getDestination().addIngoing(t);
+            // fix per correggere multitransizioni che partono da uno stesso stato,
+            // finiscono in uno stesso stato, ed hanno transizioni consecurive.
+            boolean added = false;
+            Multiset<Transition> closeset = getClosestOutgoing(t);
+            for (Transition close : closeset){
+                State tdest = t.getDestination();
+                State cdest = close.getDestination();
+                if (tdest.equals(cdest) &&
+                        (t.getLeftGuard() == close.getRightGuard() || t.getRightGuard() == close.getLeftGuard())){
+                    close.addAll(t);
+                    if (close.getLeftGuard() >= t.getLeftGuard())
+                        close.setLeftGuard(t.getLeftGuard());
+                    if (close.getRightGuard() <= t.getRightGuard())
+                        close.setRightGuard(t.getRightGuard());
+                    added = true;
+                    break;
+                }
+            }
+            if (! added) {
+                outgoing.add(t);
+                t.getDestination().addIngoing(t);
+            }
         }
     }
 
@@ -272,8 +292,28 @@ public class State{
         if (! equals(t.getDestination()))
             throw new IllegalArgumentException("Destination state should be this");
         if (! ingoing.contains(t)) {
-            ingoing.add(t);
-            t.getSource().addOutgoing(t);
+            // fix per correggere multitransizioni che partono da uno stesso stato,
+            // finiscono in uno stesso stato, ed hanno transizioni consecurive.
+            boolean added = false;
+            Multiset<Transition> closeset = getClosestIngoing(t);
+            for (Transition close : closeset){
+                State tsource = t.getSource();
+                State csource = close.getSource();
+                if (tsource.equals(csource) &&
+                        (t.getLeftGuard() == close.getRightGuard() || t.getRightGuard() == close.getLeftGuard())){
+                    close.addAll(t);
+                    if (close.getLeftGuard() >= t.getLeftGuard())
+                        close.setLeftGuard(t.getLeftGuard());
+                    if (close.getRightGuard() <= t.getRightGuard())
+                        close.setRightGuard(t.getRightGuard());
+                    added = true;
+                    break;
+                }
+            }
+            if (! added) {
+                ingoing.add(t);
+                t.getSource().addOutgoing(t);
+            }
         }
     }
 
@@ -330,8 +370,8 @@ public class State{
         if (color == Color.WHITE)
             color = Color.BLUE;
         else if (color == Color.BLUE){
-            cluster();
             color = Color.RED;
+            cluster();
         }
     }
 
@@ -376,19 +416,36 @@ public class State{
         return futures.size();
     }
 
+//    public Future getClosestFuture(Future f){
+//        Future r = new Future();
+//        State s = this;
+//        for (Double value : f){
+//            if (s == null)
+//                break;
+//            Transition t = s.getClosestOutgoing(value);
+//            if (t == null)
+//                break;
+//            r.add(t.getMu());
+//            s = t.getDestination();
+//        }
+//        return r;
+//    }
+
     public Future getClosestFuture(Future f){
-        Future r = new Future();
-        State s = this;
-        for (Double value : f){
-            if (s == null)
-                break;
-            Transition t = s.getClosestOutgoing(value);
-            if (t == null)
-                break;
-            r.add(t.getMu());
-            s = t.getDestination();
+        // nuova versione che non genera il futuro più vicino,
+        // bensi cerca quello più vicino tra i vari candidati
+        // PRO: piu robusto
+        // CONTRO: forse più costoso (O(|futurset(this)|) invece di O(|f|)
+        Future closest = new Future();
+        Double closestScore = Double.POSITIVE_INFINITY;
+        for (Future candidate : futures){
+            Double score = f.getAvgPrefixEuclideanScore(candidate);
+            if (score < closestScore){
+                closestScore = score;
+                closest = candidate;
+            }
         }
-        return r;
+        return closest;
     }
 
     // END OF FUTURE STUFF
@@ -430,23 +487,30 @@ public class State{
     // RED STATE SPECIFIC STUFF
 
     public void cluster(){
-        PriorityQueue<TransitionMerge> q = new PriorityQueue<>();
-        // INIZIALIZATION
-        inizializeClustering(q);
-        // CLUSTERING
-        performClustering(q);
-        // EXPANDING TRANSITIONS
-        expandTransitions();
+        if (color == Color.RED) {
+            PriorityQueue<TransitionMerge> q = new PriorityQueue<>();
+            // INIZIALIZATION
+            inizializeClustering(q);
+            // CLUSTERING
+            performClustering(q);
+            // EXPANDING TRANSITIONS
+            expandTransitions();
+        }
     }
 
     private void inizializeClustering(PriorityQueue<TransitionMerge> q){
         Iterator<Transition> fanout = outgoing.iterator();
         ClusteredTransition previous = null;
-        while (fanout.hasNext()){
+        while (fanout.hasNext()) {
             ClusteredTransition current = new ClusteredTransition(fanout.next());
             if (previous == null)
                 previous = current;
-            else{
+            else if (previous.getRightGuard() == current.getLeftGuard()) {
+                // quando ci sono transizioni singleton con guardie in comune,
+                // si ha un nondeterminismo, quindi a prescindere dallo score
+                // queste vanno unite.
+                addToCluster(previous, current);
+            } else {
                 TransitionMerge m = new TransitionMerge(previous, current);
                 previous.setNextMerge(m);
                 current.setPreviousMerge(m);

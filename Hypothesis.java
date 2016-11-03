@@ -11,6 +11,8 @@ package RAI;
 
 import RAI.transition_clustering.Transition;
 import RAI.transition_clustering.UnclusteredTransition;
+import com.google.common.collect.Multiset;
+
 import java.io.*;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -131,24 +133,6 @@ public class Hypothesis {
 
 
     private void fold(State rs, State bs) {
-        // NOTA BENE:
-        // cambia la politica del fold.
-        // Se rs è NON red allora aggiungo a prescindere se ci sia sovrapposizione tra transizioni.
-        // Se rs è red, allora ci sarà per forza sovrapposizione (rs ha transizioni che coprono tutto il dominio). In
-        // questo caso si aggiungono i valori della transizione di bs alla corrispettiva di rs, e si aggiungono le
-        // le transizioni uscenti dalla destinazione (bianca) della transizione uscente da bs (chiamata ricorsiva).
-        // NOTA BENE:
-        // facendo esperimenti su training file che non sono stati generati con una sliding window, abbiamo scoperto che
-        // fondamentalmente puo capitare un fold tra un blu state ed un red state foglia che non ha transizioni uscenti.
-        // In questo caso il red state è per definizione cristallizato, quindi non è possibile aggiungergli transizioni
-        // (che non sono state  "totalizzate" oltretutto, perché la totalizzazione avviene all'atto della promozione
-        // a red. Quindi, per ora, si decide di far terminare il fold senza aggiungere i futures e scartando in sostanza
-        // il sottoalbero radicato nel blue state nel caso si giunga ad una foglia rossa. Se lo stato rosso non è foglia
-        // allora si cerca di attaccare il sottoalbero blu a qualche suo figlio non red. Anche se si trova questo figlio,
-        // i futuri non possono essere aggiornati altrimenti si crea un conflitto con gli avi che sono in sostanza
-        // non aggiornati. Se stiamo foldando è perché qualche avo di bs è stato mergiato con un avo di rs, quindi
-        // i futuri sono stati considerati compatibili o simili.
-        //
         System.out.println("folding " + bs + " in " + rs);
         Iterator<Transition> iterator = bs.getOutgoingIterator();
         while (iterator.hasNext()) {
@@ -242,9 +226,11 @@ public class Hypothesis {
     }
 
 
-    //public void minimize(String outPath){
-    public void minimize(){
+    public void minimize(String outPath){
+    //public void minimize(){
+        toDot(outPath);
         root = promote(promote(root));
+        toDot(outPath + ".root");
         while (! merges.isEmpty()){
             CandidateMerge pair = merges.poll();
             State bs = pair.getBlueState();
@@ -363,11 +349,11 @@ public class Hypothesis {
     }
 
     public static void learnRA(){
-        String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/toys/verytoy/verytoy.txt";
-        double threshold = 5.;
+        String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/2states/2states.sample";
+        double threshold = 0.026;
         String dot = train + ".DOT";
         Hypothesis h = new Hypothesis(train, threshold);
-        h.minimize();
+        h.minimize(train + ".PREFIX.DOT");
         h.toDot(dot);
         System.out.println("#states: " + h.redStates.size());
     }

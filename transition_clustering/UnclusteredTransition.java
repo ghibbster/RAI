@@ -109,7 +109,7 @@ public class UnclusteredTransition implements Transition{
 
     public void addAll(Transition t){
         for (Double v : t)
-            add(v);
+            this.add(v);
     }
 
     public double getAvgEuclideanDistance(Transition t){
