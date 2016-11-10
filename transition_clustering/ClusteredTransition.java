@@ -55,8 +55,8 @@ public class ClusteredTransition implements Transition{
     }
 
     @Override
-    public double getAvgEuclideanDistance(Transition t) {
-        return transition.getAvgEuclideanDistance(t);
+    public double getCloseness(Transition t) {
+        return transition.getCloseness(t);
     }
 
     @Override
@@ -133,14 +133,6 @@ public class ClusteredTransition implements Transition{
 
     public TransitionMerge getNextMerge(){
         return next;
-    }
-
-    public double getRSS(){
-        double mu = transition.getMu();
-        double rss = 0.;
-        for (Double v : transition)
-            rss += Math.pow(Math.abs(v - mu), 2.);
-        return rss;
     }
 
 

@@ -112,7 +112,7 @@ public class UnclusteredTransition implements Transition{
             this.add(v);
     }
 
-    public double getAvgEuclideanDistance(Transition t){
+    public double getCloseness(Transition t){
         // future based distance used for clustering purposes
         // quadratic in the number of futures in this.destination and t.destination
         State tDest = t.getDestination();
@@ -126,7 +126,7 @@ public class UnclusteredTransition implements Transition{
             while (fs.hasNext()){
                 Future tf = fs.next();
                 n += 1;
-                sum += tf.getAvgPrefixEuclideanScore(null);
+                sum += tf.getCloseness(null);
             }
             return sum / ((double) n);
         }
@@ -137,7 +137,7 @@ public class UnclusteredTransition implements Transition{
             while (fs.hasNext()){
                 Future tf = fs.next();
                 n += 1;
-                sum += tf.getAvgPrefixEuclideanScore(null);
+                sum += tf.getCloseness(null);
             }
             return sum / ((double) n);
         }
@@ -150,7 +150,7 @@ public class UnclusteredTransition implements Transition{
             Future thisf = thisfs.next();
             Future tf = destination.getClosestFuture(thisf);
             //System.out.println("F " + thisf + " " + tf + " " + thisf.getAvgPrefixEuclideanScore(tf));
-            sum += thisf.getAvgPrefixEuclideanScore(tf);
+            sum += thisf.getCloseness(tf);
             n += 1;
         }
         //System.out.println("<<<");
@@ -159,7 +159,7 @@ public class UnclusteredTransition implements Transition{
             Future tf = fs.next();
             Future thisf = tDest.getClosestFuture(tf);
             //System.out.println("F " + tf + " " + thisf + " " + thisf.getAvgPrefixEuclideanScore(tf));
-            sum += tf.getAvgPrefixEuclideanScore(thisf);
+            sum += tf.getCloseness(thisf);
             n += 1;
         }
         //System.out.println("---");

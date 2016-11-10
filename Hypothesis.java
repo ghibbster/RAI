@@ -11,8 +11,6 @@ package RAI;
 
 import RAI.transition_clustering.Transition;
 import RAI.transition_clustering.UnclusteredTransition;
-import com.google.common.collect.Multiset;
-
 import java.io.*;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -226,11 +224,11 @@ public class Hypothesis {
     }
 
 
-    public void minimize(String outPath){
-    //public void minimize(){
-        toDot(outPath);
+    //public void minimize(String outPath){
+    public void minimize(){
+        //toDot(outPath);
         root = promote(promote(root));
-        toDot(outPath + ".root");
+        //toDot(outPath + ".root");
         while (! merges.isEmpty()){
             CandidateMerge pair = merges.poll();
             State bs = pair.getBlueState();
@@ -349,11 +347,13 @@ public class Hypothesis {
     }
 
     public static void learnRA(){
-        String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/2states/2states.sample";
-        double threshold = 0.026;
+        String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/3states/3states.sample";
+        //double threshold = 0.1145;
+        double threshold = 0.0200392800362497;
         String dot = train + ".DOT";
         Hypothesis h = new Hypothesis(train, threshold);
-        h.minimize(train + ".PREFIX.DOT");
+        //h.minimize(train + ".PREFIX.DOT");
+        h.minimize();
         h.toDot(dot);
         System.out.println("#states: " + h.redStates.size());
     }

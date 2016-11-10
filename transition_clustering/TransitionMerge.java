@@ -16,7 +16,7 @@ public class TransitionMerge implements Comparable<TransitionMerge>{
     public TransitionMerge(ClusteredTransition f, ClusteredTransition s){
         first = f;
         second = s;
-        score = f.getAvgEuclideanDistance(s);
+        score = f.getCloseness(s);
     }
 
     public ClusteredTransition getFirst() {
@@ -32,7 +32,7 @@ public class TransitionMerge implements Comparable<TransitionMerge>{
     }
 
     public void updateScore(){
-        first.getAvgEuclideanDistance(second);
+        first.getCloseness(second);
     }
 
     @Override

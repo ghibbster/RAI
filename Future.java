@@ -9,6 +9,10 @@
 
 package RAI;
 
+import RAI.distance_measures.AvgPrefixEuclidean;
+import RAI.distance_measures.DistanceMeasure;
+import RAI.distance_measures.MaxPrefixDifference;
+import RAI.distance_measures.MeanSquaredError;
 import java.util.Iterator;
 import java.util.LinkedList;
 
@@ -18,6 +22,8 @@ public class Future implements Iterable<Double>, Comparable<Future>{
 
     public Future(){
         values = new LinkedList<>();
+        // very important: here we set the distance measure used in the algorithm
+        distance = new AvgPrefixEuclidean();
     }
 
     public static Future parse(String[] values){
@@ -69,27 +75,38 @@ public class Future implements Iterable<Double>, Comparable<Future>{
 //        return dtw[sSize][tSize];
 //    }
 
-    public double getAvgPrefixEuclideanScore(Future f){
-        // in realtà è un errore quadratico medio
-        double result = 0.;
-        if (f == null || f.size() == 0){
-            for (Double v : values)
-                result += Math.pow(v, 2.);
-            if (values.size() == 0)
-                return Double.POSITIVE_INFINITY;
-            return Math.sqrt(result) / (double) values.size();
-        }
-        int n = 0;
+//    public double getAvgPrefixEuclideanScore(Future f){
+//        // in realtà è un errore quadratico medio
+//        double result = 0.;
+//        if (f == null || f.size() == 0){
+//            for (Double v : values)
+//                result += Math.pow(v, 2.);
+//            if (values.size() == 0)
+//                return Double.POSITIVE_INFINITY;
+//            return Math.sqrt(result) / (double) values.size();
+//        }
+//        int n = 0;
+//        Iterator<Double> i = f.iterator();
+//        for (Double v : values){
+//            if (! i.hasNext())
+//                break;
+//            result += Math.pow(v - i.next(), 2.);
+//            n += 1;
+//        }
+//        if (n == 0)
+//            return Double.POSITIVE_INFINITY;
+//        return Math.sqrt(result) / (double) n;
+//    }
+
+    public double getCloseness(Future f){
+        if (f == null)
+            f = this;
         Iterator<Double> i = f.iterator();
-        for (Double v : values){
-            if (! i.hasNext())
-                break;
-            result += Math.pow(v - i.next(), 2.);
-            n += 1;
+        for (Double v1 : values){
+            Double v2 = (i.hasNext()?(i.next()):(null));
+            distance.push(v1, v2);
         }
-        if (n == 0)
-            return Double.POSITIVE_INFINITY;
-        return Math.sqrt(result) / (double) n;
+        return distance.compute();
     }
 
     public String toString(){
@@ -146,6 +163,7 @@ public class Future implements Iterable<Double>, Comparable<Future>{
     }
 
     private LinkedList<Double> values;
+    private DistanceMeasure distance;
 
 
     //UNIT TEST
@@ -155,7 +173,8 @@ public class Future implements Iterable<Double>, Comparable<Future>{
         System.out.println(f1);
         System.out.println(f2);
         System.out.println(f1.getSuffix(1));
-        System.out.println(f2.getAvgPrefixEuclideanScore(null));
+        System.out.println(f2.getCloseness(f1.getSuffix(1)));//0.8062257748298552
+        //System.out.println(f2.getAvgPrefixEuclideanScore(f1.getSuffix(1)));
     }
 
 

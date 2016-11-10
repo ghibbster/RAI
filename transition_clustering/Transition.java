@@ -27,7 +27,7 @@ public interface Transition extends Iterable<Double>, Comparable<Transition>, Cl
 
     void addAll(Transition t);
 
-    double getAvgEuclideanDistance(Transition t);
+    double getCloseness(Transition t);
 
     void setDestination(State newShape);
 

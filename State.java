@@ -380,13 +380,15 @@ public class State{
     }
 
     public String toDot(){
-        String rep = id + " [shape=circle, label=\"" + id + "\\n" + String.format(Locale.ENGLISH, "%.2f", getMu()) + "\"];";
+        //String rep = id + " [shape=circle, label=\"" + id + "\\n" + String.format(Locale.ENGLISH, "%.2f", getMu()) + "\"];";
+        String rep = id + " [shape=circle, label=\"" + id + "\"];";
         for (Transition t : outgoing)
             if (t.getDestination() != null) {
                 String rightBra = (t.getRightGuard() == Double.POSITIVE_INFINITY)?("["):("]");
                 rep += "\n\t" + id + " -> " + t.getDestination().getId() +
                         " [label=\"]" + String.format(Locale.ENGLISH, "%.2f", t.getLeftGuard()) +
-                        ", " + String.format(Locale.ENGLISH, "%.2f", t.getRightGuard()) + rightBra + "\"];";
+                        ", " + String.format(Locale.ENGLISH, "%.2f", t.getRightGuard()) + rightBra +
+                        " " + String.format(Locale.ENGLISH, "%.2f", t.getMu()) + "\"];";
             }
         return rep;
     }
@@ -439,7 +441,7 @@ public class State{
         Future closest = new Future();
         Double closestScore = Double.POSITIVE_INFINITY;
         for (Future candidate : futures){
-            Double score = f.getAvgPrefixEuclideanScore(candidate);
+            Double score = f.getCloseness(candidate);
             if (score < closestScore){
                 closestScore = score;
                 closest = candidate;
