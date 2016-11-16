@@ -41,6 +41,10 @@ public interface Transition extends Iterable<Double>, Comparable<Transition>, Cl
 
     void add(Double v);
 
+    boolean isAdiacenTo(Transition t);
+
+    boolean isOverlappedBy(Transition t);
+
     public Transition clone() throws CloneNotSupportedException;
 
 

@@ -90,6 +90,16 @@ public class ClusteredTransition implements Transition{
     }
 
     @Override
+    public boolean isAdiacenTo(Transition t){
+        return transition.isAdiacenTo(t);
+    }
+
+    @Override
+    public boolean isOverlappedBy(Transition t){
+        return transition.isOverlappedBy(t);
+    }
+
+    @Override
     public Transition clone() throws CloneNotSupportedException {
         return (ClusteredTransition) super.clone();
     }

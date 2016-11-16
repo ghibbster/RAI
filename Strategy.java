@@ -7,17 +7,19 @@
  * For information/questions contact: gllpellegrino@gmail.com
  */
 
-package RAI.distance_measures;
-
-/**
- * Generic distance measure
- */
-public interface DistanceMeasure {
+package RAI;
 
 
-    public void push(Double value1, Double value2);
+public interface Strategy {
 
-    public Double compute();
+    // scoring function
+    public Double rank(CandidateMerge m);
+
+    // compatibility check
+    public boolean assess(CandidateMerge m);
+
+    // distance measure between future continuations
+    public Double assess(Future f1, Future f2);
 
 
 }

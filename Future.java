@@ -9,32 +9,30 @@
 
 package RAI;
 
-import RAI.distance_measures.AvgPrefixEuclidean;
-import RAI.distance_measures.DistanceMeasure;
-import RAI.distance_measures.MaxPrefixDifference;
-import RAI.distance_measures.MeanSquaredError;
+import RAI.strategies.AvgPrefixEuclidean;
+
 import java.util.Iterator;
 import java.util.LinkedList;
 
 
-public class Future implements Iterable<Double>, Comparable<Future>{
+public class Future implements Iterable<Double>, Comparable<Future>, Cloneable{
 
 
-    public Future(){
+    private Future(Strategy strategy){
         values = new LinkedList<>();
-        // very important: here we set the distance measure used in the algorithm
-        distance = new AvgPrefixEuclidean();
+        this.strategy = strategy;
     }
 
-    public static Future parse(String[] values){
-        Future f = new Future();
+    public static Future parse(String[] values, Strategy strategy){
+        Future f = new Future(strategy);
+        f.strategy = strategy;
         for (String v : values)
             f.add(new Double(v));
         return f;
     }
 
     public Future getSuffix(int i){
-        Future f = new Future();
+        Future f = new Future(strategy);
         int j = 0;
         for (Double v : values) {
             if (j >= i)
@@ -98,15 +96,20 @@ public class Future implements Iterable<Double>, Comparable<Future>{
 //        return Math.sqrt(result) / (double) n;
 //    }
 
+//    public double getCloseness(Future f){
+//        if (f == null)
+//            f = this;
+//        Iterator<Double> i = f.iterator();
+//        for (Double v1 : values){
+//            Double v2 = (i.hasNext()?(i.next()):(null));
+//            distance.push(v1, v2);
+//        }
+//        return distance.compute();
+//    }
+
+
     public double getCloseness(Future f){
-        if (f == null)
-            f = this;
-        Iterator<Double> i = f.iterator();
-        for (Double v1 : values){
-            Double v2 = (i.hasNext()?(i.next()):(null));
-            distance.push(v1, v2);
-        }
-        return distance.compute();
+        return strategy.assess(this, f);
     }
 
     public String toString(){
@@ -140,6 +143,7 @@ public class Future implements Iterable<Double>, Comparable<Future>{
         return values.size();
     }
 
+    @Override
     public boolean equals(Object o){
         if (o == null)
             return false;
@@ -162,14 +166,21 @@ public class Future implements Iterable<Double>, Comparable<Future>{
         return values.hashCode();
     }
 
+    protected Object clone() throws CloneNotSupportedException {
+        Future clone = new Future(strategy);
+        for (Double value : values)
+            clone.values.add(value);
+        return clone;
+    }
+
     private LinkedList<Double> values;
-    private DistanceMeasure distance;
+    private Strategy strategy;
 
 
     //UNIT TEST
     public static void main(String[] args){
-        Future f1 = Future.parse(new String[]{"2.0", "5.2", "7.2"});
-        Future f2 = Future.parse(new String[]{"5.0", "8.8", "12.1"});
+        Future f1 = Future.parse(new String[]{"2.0", "5.2", "7.2"}, new AvgPrefixEuclidean(0.5));
+        Future f2 = Future.parse(new String[]{"5.0", "8.8", "12.1"}, new AvgPrefixEuclidean(0.5));
         System.out.println(f1);
         System.out.println(f2);
         System.out.println(f1.getSuffix(1));

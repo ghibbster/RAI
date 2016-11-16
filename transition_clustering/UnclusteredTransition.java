@@ -166,6 +166,25 @@ public class UnclusteredTransition implements Transition{
         return sum / ((double) n);
     }
 
+    public boolean isAdiacenTo(Transition t){
+        return t.getRightGuard() == leftguard || t.getLeftGuard() == rightguard;
+    }
+
+    public boolean isOverlappedBy(Transition t){
+        if (equals(t))
+            return true;
+        // overlap on the right side of this
+        if (t.getLeftGuard() >= leftguard && t.getLeftGuard() < rightguard)
+            return true;
+        // overlap on the left side of this
+        if (t.getRightGuard() >= leftguard && t.getRightGuard() < rightguard)
+            return true;
+        // total inclusion of t in this
+        if (t.getLeftGuard() >= leftguard && t.getRightGuard() < rightguard)
+            return true;
+        return false;
+    }
+
     @Override
     public Iterator<Double> iterator() {
         return values.iterator();

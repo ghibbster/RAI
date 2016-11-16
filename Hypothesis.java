@@ -9,6 +9,8 @@
 
 package RAI;
 
+import RAI.strategies.AvgPrefixEuclidean;
+import RAI.strategies.VotingWithPrefixes;
 import RAI.transition_clustering.Transition;
 import RAI.transition_clustering.UnclusteredTransition;
 import java.io.*;
@@ -29,20 +31,25 @@ import java.util.regex.Pattern;
 public class Hypothesis {
 
 
-    public Hypothesis(double significance){
+//    public Hypothesis(double significance){
+//        root = new State();
+//        merges = new PriorityQueue<>();
+//        redStates = new HashSet<>();
+//        alpha = significance;
+//    }
+
+    public Hypothesis(){
         root = new State();
         merges = new PriorityQueue<>();
         redStates = new HashSet<>();
-        alpha = significance;
     }
 
-    public Hypothesis(String trainingPath, double significance){
-        this(significance);
+    private void prefixTree(String trainingPath){
         try (BufferedReader br = new BufferedReader(new FileReader(trainingPath))) {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] values = line.split(" ");
-                Future future = Future.parse(values);
+                Future future = Future.parse(values, strategy);
                 State state = root;
                 for (int i = 0; i < values.length; i++){
                     double value = new Double(values[i]);
@@ -57,7 +64,7 @@ public class Hypothesis {
         }
     }
 
-    public Hypothesis(String modelPath){
+    public void fromDOT(String modelPath){
         // READ A MODEL FROM A DOT FILE
         try (BufferedReader br = new BufferedReader(new FileReader(modelPath))) {
             String line;
@@ -96,9 +103,14 @@ public class Hypothesis {
         }
     }
 
+    public void setStrategy(Strategy strategy){
+        this.strategy = strategy;
+    }
+
     // CANDIDATE MERGES STUFF
 
     private void registerPair(CandidateMerge pair){
+        pair.computeScore(strategy);
         merges.add(pair);
         pair.getBlueState().addMerge(pair);
     }
@@ -126,6 +138,10 @@ public class Hypothesis {
             rs.addFuture(f);
         }
         fold(rs, bs);
+        // preparing dispose of the blue state
+        Iterator<CandidateMerge> mIterator = bs.getMergesIterator();
+        while (mIterator.hasNext())
+            merges.remove(mIterator.next());
         bs.dispose();
     }
 
@@ -169,9 +185,14 @@ public class Hypothesis {
                     Iterator<Future> fit = dest.getFuturesIterator();
                     while (fit.hasNext()) {
                         Future f = fit.next();
-                        fit.remove();
-                        f.addFirst(firstValue);
-                        rs.addFuture(f);
+                        //fit.remove();
+                        try {
+                            Future fatherFuture = (Future) f.clone();
+                            f.addFirst(firstValue);
+                            rs.addFuture(fatherFuture);
+                        } catch (CloneNotSupportedException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
                 // attaching
@@ -197,7 +218,6 @@ public class Hypothesis {
 
 
     public State promote(State s){
-        System.out.println("going to promote " + s);
         if (s.isWhite()){
             s.promote();
             for (State rs : redStates)
@@ -212,7 +232,8 @@ public class Hypothesis {
                 Transition t = iterator.next();
                 State ns = t.getDestination();
                 if (ns.isWhite())
-                    ns.promote();
+                    //ns.promote();
+                    promote(ns);
                 if (ns.isBlue())
                     registerPair(new CandidateMerge(s, ns));
             }
@@ -224,8 +245,8 @@ public class Hypothesis {
     }
 
 
-    //public void minimize(String outPath){
-    public void minimize(){
+    public void minimize(String samplePath){
+        prefixTree(samplePath);
         //toDot(outPath);
         root = promote(promote(root));
         //toDot(outPath + ".root");
@@ -233,7 +254,7 @@ public class Hypothesis {
             CandidateMerge pair = merges.poll();
             State bs = pair.getBlueState();
             State rs = pair.getRedState();
-            if (pair.isCompatible(alpha)) {
+            if (strategy.assess(pair)) {
                 System.out.println("Merging " + pair);
                 merge(rs, bs);
                 // promoting possible white states connected to rs
@@ -247,7 +268,6 @@ public class Hypothesis {
                 System.out.println("Discarding " + pair);
                 unregisterPair(pair);
                 if (! bs.hasMerges()) {
-                    System.out.println("Promoting " + bs);
                     promote(bs);
                 }
             }
@@ -331,7 +351,7 @@ public class Hypothesis {
     private State root;
     private PriorityQueue<CandidateMerge> merges;
     private Set<State> redStates;
-    private double alpha;
+    private Strategy strategy;
     private static final Pattern stateRE = Pattern.compile(
             "^(?<sid>\\d+) \\[shape=(circle|doublecircle), label=\\\"\\d+\\\\n(?<mu>-?\\d*.?\\d+)\\\"\\];$");
     private static final Pattern transRE = Pattern.compile(
@@ -347,25 +367,26 @@ public class Hypothesis {
     }
 
     public static void learnRA(){
-        String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/3states/3states.sample";
-        //double threshold = 0.1145;
-        double threshold = 0.0200392800362497;
+        String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/3statesV2/3statesV2.sample";
+        double threshold = 0.41355618141549232;
         String dot = train + ".DOT";
-        Hypothesis h = new Hypothesis(train, threshold);
-        //h.minimize(train + ".PREFIX.DOT");
-        h.minimize();
+        Hypothesis h = new Hypothesis();
+        //h.setStrategy(new AvgPrefixEuclidean(threshold));
+        h.setStrategy(new VotingWithPrefixes(5., .2));
+        h.minimize(train);
         h.toDot(dot);
         System.out.println("#states: " + h.redStates.size());
     }
 
-    public static void predictWithRA(){
-        //PREDICTION
-        String modelpath = "/media/npellegrino/DEDEC851DEC8241D1/CTU-13/datasets/with_background/cleaned/9/pada/EXP.DOT";
-        String obspath = "/media/npellegrino/DEDEC851DEC8241D1/CTU-13/datasets/with_background/cleaned/9/pada/147.32.84.191.csv.rai";
-        String respath = "/media/npellegrino/DEDEC851DEC8241D1/CTU-13/datasets/with_background/cleaned/9/pada/147.32.84.191.expectation";
-        Hypothesis h = new Hypothesis(modelpath);
-        h.exportPredictions(obspath, respath);
-    }
+//    public static void predictWithRA(){
+    //@todo need to be updated
+//        //PREDICTION
+//        String modelpath = "/media/npellegrino/DEDEC851DEC8241D1/CTU-13/datasets/with_background/cleaned/9/pada/EXP.DOT";
+//        String obspath = "/media/npellegrino/DEDEC851DEC8241D1/CTU-13/datasets/with_background/cleaned/9/pada/147.32.84.191.csv.rai";
+//        String respath = "/media/npellegrino/DEDEC851DEC8241D1/CTU-13/datasets/with_background/cleaned/9/pada/147.32.84.191.expectation";
+//        Hypothesis h = new Hypothesis(modelpath);
+//        h.exportPredictions(obspath, respath);
+//    }
 
 
 }

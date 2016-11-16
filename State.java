@@ -106,7 +106,7 @@ public class State{
         Transition bestRight = null;
         Multiset<Transition> overlapping = TreeMultiset.create();
         for (Transition o : outgoing){
-            // NON OVERLAP CASES
+            // NON OVERLAP CASES and stop condition of the loop
             if (o.getRightGuard() > t.getRightGuard() && o.getLeftGuard() > t.getRightGuard()) {
                 bestRight = o;
                 break;
@@ -115,14 +115,16 @@ public class State{
                 bestLeft = o;
             // OVERLAP CASES: here we always take those candidates as the best ones
             // totally included
-            if (o.getLeftGuard() <= t.getLeftGuard() && t.getRightGuard() <= o.getRightGuard())
+            if (t.isOverlappedBy(o))
                 overlapping.add(o);
-            // overlap on the left
-            if (o.getRightGuard() >= t.getLeftGuard() && o.getLeftGuard() <= t.getLeftGuard())
-                overlapping.add(o);
-            //overlap on the right
-            if (o.getLeftGuard() <= t.getRightGuard() && o.getRightGuard() >= t.getRightGuard())
-                overlapping.add(o);
+//            if (o.getLeftGuard() <= t.getLeftGuard() && t.getRightGuard() <= o.getRightGuard())
+//                overlapping.add(o);
+//            // overlap on the left
+//            if (o.getRightGuard() >= t.getLeftGuard() && o.getLeftGuard() <= t.getLeftGuard())
+//                overlapping.add(o);
+//            //overlap on the right
+//            if (o.getLeftGuard() <= t.getRightGuard() && o.getRightGuard() >= t.getRightGuard())
+//                overlapping.add(o);
         }
         // se overlapping ha elementi al suo interno, ritorna overlapping. Altrimenti ritorna il migliore più prossimo
         // se esiste
@@ -165,13 +167,15 @@ public class State{
                 bestLeft = o;
             // OVERLAP CASES: here we always take those candidates as the best ones
             // totally included
-            if (o.getLeftGuard() <= t.getLeftGuard() && t.getRightGuard() <= o.getRightGuard())
-                overlapping.add(o);
-            // overlap on the left
-            if (o.getRightGuard() >= t.getLeftGuard() && o.getLeftGuard() <= t.getLeftGuard())
-                overlapping.add(o);
-            //overlap on the right
-            if (o.getLeftGuard() <= t.getRightGuard() && o.getRightGuard() >= t.getRightGuard())
+//            if (o.getLeftGuard() <= t.getLeftGuard() && t.getRightGuard() <= o.getRightGuard())
+//                overlapping.add(o);
+//            // overlap on the left
+//            if (o.getRightGuard() >= t.getLeftGuard() && o.getLeftGuard() <= t.getLeftGuard())
+//                overlapping.add(o);
+//            //overlap on the right
+//            if (o.getLeftGuard() <= t.getRightGuard() && o.getRightGuard() >= t.getRightGuard())
+//                overlapping.add(o);
+            if (t.isOverlappedBy(o))
                 overlapping.add(o);
         }
         // se overlapping ha elementi al suo interno, ritorna overlapping. Altrimenti ritorna il migliore più prossimo
@@ -205,15 +209,17 @@ public class State{
         Multiset<Transition> overlapping = TreeMultiset.create();
         for (Transition o : outgoing){
             // OVERLAP CASES: here we always take those candidates as the best ones
-            // totally included
-            if (o.getLeftGuard() <= t.getLeftGuard() && t.getRightGuard() <= o.getRightGuard())
+            if (t.isOverlappedBy(o))
                 overlapping.add(o);
-            // overlap on the left
-            else if (o.getRightGuard() >= t.getLeftGuard() && o.getLeftGuard() <= t.getLeftGuard())
-                overlapping.add(o);
-            //overlap on the right
-            else if (o.getLeftGuard() <= t.getRightGuard() && o.getRightGuard() >= t.getRightGuard())
-                overlapping.add(o);
+//             totally included
+//            if (o.getLeftGuard() <= t.getLeftGuard() && t.getRightGuard() <= o.getRightGuard())
+//                overlapping.add(o);
+//            // overlap on the left
+//            else if (o.getRightGuard() >= t.getLeftGuard() && o.getLeftGuard() <= t.getLeftGuard())
+//                overlapping.add(o);
+//            //overlap on the right
+//            else if (o.getLeftGuard() <= t.getRightGuard() && o.getRightGuard() >= t.getRightGuard())
+//                overlapping.add(o);
         }
         return overlapping;
     }
@@ -222,22 +228,24 @@ public class State{
         Multiset<Transition> overlapping = TreeMultiset.create();
         for (Transition o : ingoing){
             // OVERLAP CASES: here we always take those candidates as the best ones
-            // totally included
-            if (o.getLeftGuard() <= t.getLeftGuard() && t.getRightGuard() <= o.getRightGuard())
+            if (t.isOverlappedBy(o))
                 overlapping.add(o);
-            // overlap on the left
-            else if (o.getRightGuard() >= t.getLeftGuard() && o.getLeftGuard() <= t.getLeftGuard())
-                overlapping.add(o);
-            //overlap on the right
-            else if (o.getLeftGuard() <= t.getRightGuard() && o.getRightGuard() >= t.getRightGuard())
-                overlapping.add(o);
+//            // totally included
+//            if (o.getLeftGuard() <= t.getLeftGuard() && t.getRightGuard() <= o.getRightGuard())
+//                overlapping.add(o);
+//            // overlap on the left
+//            else if (o.getRightGuard() >= t.getLeftGuard() && o.getLeftGuard() <= t.getLeftGuard())
+//                overlapping.add(o);
+//            //overlap on the right
+//            else if (o.getLeftGuard() <= t.getRightGuard() && o.getRightGuard() >= t.getRightGuard())
+//                overlapping.add(o);
         }
         return overlapping;
     }
 
     public Transition getOutgoing(double value) {
         for (Transition t : outgoing){
-            if (value >= t.getLeftGuard() && value <= t.getRightGuard())
+            if (value >= t.getLeftGuard() && value < t.getRightGuard())
                 return t;
             // value < LG || value > RG
             if (value < t.getLeftGuard())
@@ -249,7 +257,7 @@ public class State{
 
     public Transition getIngoing(double value) {
         for (Transition t : ingoing){
-            if (value >= t.getLeftGuard() && value <= t.getRightGuard())
+            if (value >= t.getLeftGuard() && value < t.getRightGuard())
                 return t;
             // value < LG || value > RG
             if (value < t.getLeftGuard())
@@ -270,8 +278,8 @@ public class State{
             for (Transition close : closeset){
                 State tdest = t.getDestination();
                 State cdest = close.getDestination();
-                if (tdest.equals(cdest) &&
-                        (t.getLeftGuard() == close.getRightGuard() || t.getRightGuard() == close.getLeftGuard())){
+                if (tdest.equals(cdest) && close.isAdiacenTo(t)){
+//                        (t.getLeftGuard() == close.getRightGuard() || t.getRightGuard() == close.getLeftGuard())){
                     close.addAll(t);
                     if (close.getLeftGuard() >= t.getLeftGuard())
                         close.setLeftGuard(t.getLeftGuard());
@@ -299,8 +307,8 @@ public class State{
             for (Transition close : closeset){
                 State tsource = t.getSource();
                 State csource = close.getSource();
-                if (tsource.equals(csource) &&
-                        (t.getLeftGuard() == close.getRightGuard() || t.getRightGuard() == close.getLeftGuard())){
+                if (tsource.equals(csource) && close.isAdiacenTo(t)){
+//                        (t.getLeftGuard() == close.getRightGuard() || t.getRightGuard() == close.getLeftGuard())){
                     close.addAll(t);
                     if (close.getLeftGuard() >= t.getLeftGuard())
                         close.setLeftGuard(t.getLeftGuard());
@@ -367,6 +375,7 @@ public class State{
     }
 
     public void promote(){
+        System.out.println("going to promote " + this);
         if (color == Color.WHITE)
             color = Color.BLUE;
         else if (color == Color.BLUE){
@@ -438,11 +447,11 @@ public class State{
         // bensi cerca quello più vicino tra i vari candidati
         // PRO: piu robusto
         // CONTRO: forse più costoso (O(|futurset(this)|) invece di O(|f|)
-        Future closest = new Future();
+        Future closest = null;
         Double closestScore = Double.POSITIVE_INFINITY;
         for (Future candidate : futures){
             Double score = f.getCloseness(candidate);
-            if (score < closestScore){
+            if (score < closestScore || closest == null){
                 closestScore = score;
                 closest = candidate;
             }
@@ -482,6 +491,10 @@ public class State{
     public void removeMerge(CandidateMerge pair){
         if (color == Color.BLUE)
             pairs.remove(pair);
+    }
+
+    public Iterator<CandidateMerge> getMergesIterator(){
+        return pairs.iterator();
     }
 
     // END OF BLUE STATE SPECIFIC STUFF
