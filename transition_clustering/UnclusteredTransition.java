@@ -29,7 +29,6 @@ public class UnclusteredTransition implements Transition{
         this.sigmasquared = 0.;
         this.oldsigmasquared = 0.;
         this.leftguard = Double.POSITIVE_INFINITY;
-        this.rightguard = Double.NEGATIVE_INFINITY;
     }
 
     public UnclusteredTransition(State source, State destination, Double leftguard, Double rightguard){
@@ -167,20 +166,24 @@ public class UnclusteredTransition implements Transition{
     }
 
     public boolean isAdiacenTo(Transition t){
-        return t.getRightGuard() == leftguard || t.getLeftGuard() == rightguard;
+        return (t.getRightGuard() == leftguard || t.getLeftGuard() == rightguard) &&
+                destination.equals(t.getDestination());
     }
 
     public boolean isOverlappedBy(Transition t){
         if (equals(t))
             return true;
+        // this and t are the same singleton transitions
+        if (leftguard == rightguard && t.getLeftGuard() == t.getRightGuard() && rightguard == t.getRightGuard())
+            return true;
         // overlap on the right side of this
-        if (t.getLeftGuard() >= leftguard && t.getLeftGuard() < rightguard)
+        if (t.getLeftGuard() < rightguard && t.getRightGuard() >= rightguard)
             return true;
         // overlap on the left side of this
-        if (t.getRightGuard() >= leftguard && t.getRightGuard() < rightguard)
+        if (t.getRightGuard() > leftguard && t.getLeftGuard() <= leftguard)
             return true;
         // total inclusion of t in this
-        if (t.getLeftGuard() >= leftguard && t.getRightGuard() < rightguard)
+        if (t.getLeftGuard() > leftguard && t.getRightGuard() <= rightguard)
             return true;
         return false;
     }
@@ -239,7 +242,6 @@ public class UnclusteredTransition implements Transition{
     public String toString(){
         return "( " + source.getId() + " [ " + leftguard + ", " + rightguard + " ] " + destination.getId() + " )";
     }
-
 
 
     private State source;

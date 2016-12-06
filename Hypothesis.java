@@ -10,7 +10,6 @@
 package RAI;
 
 import RAI.strategies.AvgPrefixEuclidean;
-import RAI.strategies.VotingWithPrefixes;
 import RAI.transition_clustering.Transition;
 import RAI.transition_clustering.UnclusteredTransition;
 import java.io.*;
@@ -19,27 +18,18 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
-// In questa versione sono apportati cambi NON concettuali ma di riorganizzazione del codice.
+// In questa versione sono apportati cambi NON ancora concettuali ma di riorganizzazione del codice.
 // Principali cambiamenti:
-// 1) Le tre classi di stato sono fuse in un'unica classe per evitare nuove instanziazioni ad ogni promozione. Ora
-//      esiste una sola classe STATE con una variabile di campo che assume i tre colori (in una enumeration).
-// 2) La promozione è un fatto che si risolve localmente alla classe STATE, e non in HYPOTHESIS.
-// 3) Rimozione di tutte le classi interne in HYPOTHESIS, nella fattispecie CANDIDATEMERGE, che diventa classe
-//      a tutti gli effetti
+// 1) Hypothesis ora contiene solo l'algoritmo di learning. Ciò vuol dire che promote, fold, ecc sono spostate in State
+// 2) State ha maggior responsabilità, contiene cose che prima erano appannaggio di Hypothesis
 
 
 public class Hypothesis {
 
 
-//    public Hypothesis(double significance){
-//        root = new State();
-//        merges = new PriorityQueue<>();
-//        redStates = new HashSet<>();
-//        alpha = significance;
-//    }
 
     public Hypothesis(){
-        root = new State();
+        root = new State(this);
         merges = new PriorityQueue<>();
         redStates = new HashSet<>();
     }
@@ -53,10 +43,14 @@ public class Hypothesis {
                 State state = root;
                 for (int i = 0; i < values.length; i++){
                     double value = new Double(values[i]);
-                    if (state.getOutgoing(value) == null)
-                        state.addOutgoing(new UnclusteredTransition(state, new State(), value));
+                    if (state.getOutgoing(value) == null) {
+                        Transition newT = new UnclusteredTransition(state, new State(this), value);
+                        state.addOutgoing(newT);
+                        newT.getDestination().addIngoing(newT);
+                    }
                     state.addFuture(future.getSuffix(i));
-                    state = state.getClosestOutgoing(value).getDestination();
+                    // a questo punto ci sarà sicuro la transizione uscente per value
+                    state = state.getOutgoing(value).getDestination();
                 }
             }
         } catch (IOException e) {
@@ -77,7 +71,7 @@ public class Hypothesis {
                     Integer sid = Integer.parseInt(lMatcher.group("sid"));
                     Double mu = Double.parseDouble(lMatcher.group("mu"));
                     if (! states.containsKey(sid))
-                        states.put(sid, new State(sid));
+                        states.put(sid, new State(this, sid));
                     current = states.get(sid);
                     current.setMu(mu);
                     if (sid.equals(0))
@@ -91,10 +85,11 @@ public class Hypothesis {
                         Double rguard = Double.parseDouble(lMatcher.group("rguard"));
                         //System.out.println("BUM " + ssid + " " + dsid + " " + lguard + " " + rguard);
                         if (! states.containsKey(dsid))
-                            states.put(dsid, new State(dsid));
+                            states.put(dsid, new State(this, dsid));
                         current = states.get(ssid);
                         Transition t = new UnclusteredTransition(current, states.get(dsid), lguard, rguard);
                         current.addOutgoing(t);
+                        t.getDestination().addIngoing(t);
                     }
                 }
             }
@@ -109,167 +104,57 @@ public class Hypothesis {
 
     // CANDIDATE MERGES STUFF
 
-    private void registerPair(CandidateMerge pair){
-        pair.computeScore(strategy);
-        merges.add(pair);
-        pair.getBlueState().addMerge(pair);
-    }
-
-    private void unregisterPair(CandidateMerge pair){
-        merges.remove(pair);
-        pair.getBlueState().removeMerge(pair);
-    }
-
-    // MERGING STUFF
-
-    public void merge(State rs, State bs){
-        // handling ingoing transitions
-        Iterator<Transition> tIterator = bs.getIngoingIterator();
-        while (tIterator.hasNext()) {
-            Transition t = tIterator.next();
-            t.setDestination(rs);
-            bs.removeIngoing(t);
-            rs.addIngoing(t);
-        }
-        Iterator<Future> fIterator = bs.getFuturesIterator();
-        while (fIterator.hasNext()){
-            Future f = fIterator.next();
-            fIterator.remove();
-            rs.addFuture(f);
-        }
-        fold(rs, bs);
-        // preparing dispose of the blue state
-        Iterator<CandidateMerge> mIterator = bs.getMergesIterator();
-        while (mIterator.hasNext())
-            merges.remove(mIterator.next());
-        bs.dispose();
-    }
-
-
-    private void fold(State rs, State bs) {
-        System.out.println("folding " + bs + " in " + rs);
-        Iterator<Transition> iterator = bs.getOutgoingIterator();
-        while (iterator.hasNext()) {
-            // for each outgoing transition of BLUE (bt)
-            Transition bt = iterator.next();
-            iterator.remove();
-            if (rs.isRed() && ! rs.isLeaf()) {
-                Transition overlapping = rs.getOutgoing(bt.getMu());
-                // nota bene: ocio che overlapping quì può terminare anche
-                // in un RED state perché c'è stato il merge prima !!
-                overlapping.addAll(bt);
-                //handling futures
-                State dest = bt.getDestination();
-                if (dest != null && ! dest.equals(rs)){
-                    Double firstValue = bt.getMu();
-                    Iterator<Future> fit = dest.getFuturesIterator();
-                    while (fit.hasNext()) {
-                        Future f = fit.next();
-                        fit.remove();
-                        f.addFirst(firstValue);
-                        rs.addFuture(f);
-                    }
-                    // recursive call. Overlapping.getDestination() cannot return null,
-                    // we constructed the prefix tree
-                    // in order to avoid that
-                    fold(overlapping.getDestination(), dest);
-                }
-            } else {
-                // RS IS BLUE, WHITE, OR RED-LEAF
-                // DEST CAN BE OF ANY COLOR
-                bt.setSource(rs);
-                // handling futures
-                State dest = bt.getDestination();
-                if (dest != null) {
-                    Double firstValue = bt.getMu();
-                    Iterator<Future> fit = dest.getFuturesIterator();
-                    while (fit.hasNext()) {
-                        Future f = fit.next();
-                        //fit.remove();
-                        try {
-                            Future fatherFuture = (Future) f.clone();
-                            f.addFirst(firstValue);
-                            rs.addFuture(fatherFuture);
-                        } catch (CloneNotSupportedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
-                // attaching
-                rs.addOutgoing(bt);
-                // possible promotions
-                if (rs.isRed()) {
-                    rs.cluster();
-                    if (dest != null)
-                        if (dest.isWhite())
-                            promote(dest);
-                        else if (dest.isBlue())
-                            registerPair(new CandidateMerge(rs, dest));
-                }
-                else if (dest != null){
-                    if (rs.isBlue() && dest.isRed())
-                        registerPair(new CandidateMerge(dest, rs));
-                    else if (rs.isWhite() && dest.isRed())
-                        promote(rs);
-                }
-            }
-        }
-    }
-
-
-    public State promote(State s){
-        if (s.isWhite()){
-            s.promote();
-            for (State rs : redStates)
-                registerPair(new CandidateMerge(rs, s));
-            return s;
-        }
-        if (s.isBlue()){
-            s.promote();
-            // promote all white sons to blue
-            Iterator<Transition> iterator = s.getOutgoingIterator();
-            while (iterator.hasNext()){
-                Transition t = iterator.next();
-                State ns = t.getDestination();
-                if (ns.isWhite())
-                    //ns.promote();
-                    promote(ns);
-                if (ns.isBlue())
-                    registerPair(new CandidateMerge(s, ns));
-            }
-            // deve stare quà altrimenti si aggiungono due volte le stesse coppie alla coda
+    public void notifyPromotion(State s){
+        // it gets called before updating s's fields as a consequence of the promotion
+        if (s.isBlue()) {
             redStates.add(s);
-            return s;
-        }
-        return s;
+            Iterator<CandidateMerge> pairs = s.getMergesIterator();
+            while (pairs.hasNext()){
+                CandidateMerge pair = pairs.next();
+                merges.remove(pair);
+                pairs.remove();
+            }
+        }else if (s.isWhite())
+            for (State redState : redStates) {
+                CandidateMerge pair = new CandidateMerge(redState, s);
+                pair.computeScore(strategy);
+                merges.add(pair);
+                s.addMerge(pair);
+            }
     }
 
+    public void notifyDisposal(State s){
+        Iterator<CandidateMerge> pairs = s.getMergesIterator();
+        Collection<CandidateMerge> toRemove = new LinkedList<>();
+        // gathering pairs to remove
+        while (pairs.hasNext())
+            toRemove.add(pairs.next());
+        // doing the actual removal
+        for (CandidateMerge pair : toRemove) {
+            merges.remove(pair);
+            s.removeMerge(pair);
+        }
+    }
+
+    // END OF CANDIDATE MERGES STUFF
 
     public void minimize(String samplePath){
         prefixTree(samplePath);
-        //toDot(outPath);
-        root = promote(promote(root));
-        //toDot(outPath + ".root");
+        root.promote().promote();
+        System.out.println("Prefix Tree created");
         while (! merges.isEmpty()){
             CandidateMerge pair = merges.poll();
+            System.out.println("Considering couple " + pair);
             State bs = pair.getBlueState();
-            State rs = pair.getRedState();
             if (strategy.assess(pair)) {
-                System.out.println("Merging " + pair);
-                merge(rs, bs);
-                // promoting possible white states connected to rs
-                Iterator<Transition> oIterator = rs.getOutgoingIterator();
-                while (oIterator.hasNext()){
-                    State s = oIterator.next().getDestination();
-                    if (s.isWhite())
-                        promote(s);
-                }
-            } else {
+                State rs = pair.getRedState();
+                rs.mergeWith(bs);
+            }else {
                 System.out.println("Discarding " + pair);
-                unregisterPair(pair);
-                if (! bs.hasMerges()) {
-                    promote(bs);
-                }
+                merges.remove(pair);
+                bs.removeMerge(pair);
+                if (! bs.hasMerges())
+                    bs.promote();
             }
         }
     }
@@ -302,51 +187,6 @@ public class Hypothesis {
         }
     }
 
-    // PREDICTION STUFF
-
-    public double predict(Double[] past){
-        State current = root;
-        for (Double value : past){
-            if (current.isLeaf())
-                current = root;
-            current = current.getClosestOutgoing(value).getDestination();
-        }
-        return  current.getMu();
-    }
-
-
-    public State state(State state, Double observation){
-        if (state.isLeaf())
-            return root;
-        return state.getOutgoing(observation).getDestination();
-    }
-
-
-    public void exportPredictions(String testPath, String exportPath){
-        // used by PADA
-        try {
-            BufferedReader reader = new BufferedReader(new FileReader(testPath));
-            BufferedWriter writer = new BufferedWriter(new FileWriter(new File(exportPath)));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String[] fields = line.trim().split(" ");
-                //System.out.println(Arrays.toString(fields));
-                State current = root;
-                for (String field : fields){
-                    Double ob = Double.parseDouble(field);
-                    State next = state(current, ob);
-                    //System.out.println(next + " " + next.getMu());
-                    writer.write(next.getMu() + "\n");
-                    current = next;
-                }
-            }
-            writer.close();
-            reader.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
 
     private State root;
     private PriorityQueue<CandidateMerge> merges;
@@ -362,31 +202,19 @@ public class Hypothesis {
 
     //unit test
     public static void main(String[] args){
-        learnRA();
-        //predictWithRA();
-    }
-
-    public static void learnRA(){
-        String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/3statesV2/3statesV2.sample";
-        double threshold = 0.41355618141549232;
+        String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/3states/3states.sample";
+        //double threshold = 0.41355618141549232;
+        double threshold = 0.18;
+        //double threshold = 1.9;
         String dot = train + ".DOT";
         Hypothesis h = new Hypothesis();
-        //h.setStrategy(new AvgPrefixEuclidean(threshold));
-        h.setStrategy(new VotingWithPrefixes(5., .2));
+        h.setStrategy(new AvgPrefixEuclidean(threshold));
+        //h.setStrategy(new VotingWithPrefixes(5., .2));
         h.minimize(train);
         h.toDot(dot);
         System.out.println("#states: " + h.redStates.size());
+        System.out.println(h.redStates);
     }
-
-//    public static void predictWithRA(){
-    //@todo need to be updated
-//        //PREDICTION
-//        String modelpath = "/media/npellegrino/DEDEC851DEC8241D1/CTU-13/datasets/with_background/cleaned/9/pada/EXP.DOT";
-//        String obspath = "/media/npellegrino/DEDEC851DEC8241D1/CTU-13/datasets/with_background/cleaned/9/pada/147.32.84.191.csv.rai";
-//        String respath = "/media/npellegrino/DEDEC851DEC8241D1/CTU-13/datasets/with_background/cleaned/9/pada/147.32.84.191.expectation";
-//        Hypothesis h = new Hypothesis(modelpath);
-//        h.exportPredictions(obspath, respath);
-//    }
 
 
 }

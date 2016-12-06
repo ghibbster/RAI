@@ -33,7 +33,7 @@ public class VotingWithPrefixes implements Strategy{
         State bs = m.getBlueState();
         System.out.println("Scoring couple (" + rs.getId() + ", " + bs.getId() + ")");
         // base cases
-        if (rs.isLeaf() || bs.isLeaf())
+        if (rs.isLeaf() && bs.isLeaf())
             return 0.;
         // general case
         Double score = 0.;
@@ -77,8 +77,20 @@ public class VotingWithPrefixes implements Strategy{
     public Double assess(Future f1, Future f2) {
         // It counts how meny significatly different values are in the
         // longest aligned prefixes of f1 and f2
-        if (f1 == null || f2 == null)
+        if (f1 == null && f2 == null)
             return 0.;
+        if (f1 == null){
+            String[] values = new String[f2.size()];
+            for (int i = 0; i < f2.size(); i ++)
+                values[i] = "0.0";
+            f1 = Future.parse(values, this);
+        }
+        if (f2 == null) {
+            String[] values = new String[f1.size()];
+            for (int i = 0; i < f1.size(); i ++)
+                values[i] = "0.0";
+            f2 = Future.parse(values, this);
+        }
         Iterator<Double> vs2 = f2.iterator();
         Double result = 0.;
         for (Double v1 : f1){

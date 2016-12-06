@@ -7,28 +7,31 @@
  * For information/questions contact: gllpellegrino@gmail.com
  */
 
-package RAI;// WHITE STATE
+
+// questo stato rappresenta uno stato dell'algoritho di merging.
+// ci dovrà in futuro essere anche una classe State della quale questa è una decorazione.
+
+package RAI;
 
 
 import RAI.transition_clustering.ClusteredTransition;
 import RAI.transition_clustering.Transition;
 import RAI.transition_clustering.TransitionMerge;
 import RAI.transition_clustering.UnclusteredTransition;
-import com.google.common.collect.Multiset;
 import com.google.common.collect.TreeMultiset;
 import java.util.*;
-import static java.lang.Math.abs;
 
 
 public class State{
 
 
-    public State(){
-        this(idGenerator ++ );
+    public State(Hypothesis h){
+        this(h, idGenerator ++);
     }
 
-    public State(int id){
+    public State(Hypothesis h, int id){
         this.id = id;
+        hypothesis = h;
         outgoing = TreeMultiset.create();
         ingoing = TreeMultiset.create();
         mu = null;
@@ -64,188 +67,12 @@ public class State{
         this.mu = mu;
     }
 
-    public Transition getClosestOutgoing(double value) {
-        Transition previousCandidate = null;
-        for (Transition t : outgoing){
-            //System.out.println(">> " + t.getMu() + " " + t);
-            if (value >= t.getLeftGuard() && value <= t.getRightGuard())
-                return t;
-            // value < LG || value > RG
-            if (value < t.getLeftGuard()) {
-                if (previousCandidate == null)
-                    return t;
-                double dPrevious = abs(value - previousCandidate.getRightGuard());
-                double dCurrent = abs(value - t.getLeftGuard());
-                return (dPrevious <= dCurrent)?(previousCandidate):(t);
-            }
-            previousCandidate = t;
-        }
-        return previousCandidate;
-    }
-
-    public Transition getClosestIngoing(double value) {
-        Transition previousCandidate = null;
-        for (Transition t : ingoing){
-            if (value >= t.getLeftGuard() && value <= t.getRightGuard())
-                return t;
-            // value < LG || value > RG
-            if (value < t.getLeftGuard()) {
-                if (previousCandidate == null)
-                    return t;
-                double dPrevious = abs(value - previousCandidate.getRightGuard());
-                double dCurrent = abs(value - t.getLeftGuard());
-                return (dPrevious <= dCurrent)?(previousCandidate):(t);
-            }
-            previousCandidate = t;
-        }
-        return previousCandidate;
-    }
-
-    public Multiset<Transition> getClosestOutgoing(Transition t) {
-        Transition bestLeft = null;
-        Transition bestRight = null;
-        Multiset<Transition> overlapping = TreeMultiset.create();
-        for (Transition o : outgoing){
-            // NON OVERLAP CASES and stop condition of the loop
-            if (o.getRightGuard() > t.getRightGuard() && o.getLeftGuard() > t.getRightGuard()) {
-                bestRight = o;
-                break;
-            }
-            if (o.getRightGuard() < t.getLeftGuard() && o.getLeftGuard() < t.getLeftGuard())
-                bestLeft = o;
-            // OVERLAP CASES: here we always take those candidates as the best ones
-            // totally included
-            if (t.isOverlappedBy(o))
-                overlapping.add(o);
-//            if (o.getLeftGuard() <= t.getLeftGuard() && t.getRightGuard() <= o.getRightGuard())
-//                overlapping.add(o);
-//            // overlap on the left
-//            if (o.getRightGuard() >= t.getLeftGuard() && o.getLeftGuard() <= t.getLeftGuard())
-//                overlapping.add(o);
-//            //overlap on the right
-//            if (o.getLeftGuard() <= t.getRightGuard() && o.getRightGuard() >= t.getRightGuard())
-//                overlapping.add(o);
-        }
-        // se overlapping ha elementi al suo interno, ritorna overlapping. Altrimenti ritorna il migliore più prossimo
-        // se esiste
-        if (! overlapping.isEmpty())
-            return overlapping;
-        else {
-            Multiset<Transition> result = TreeMultiset.create();
-            if (bestLeft == null && bestRight == null)
-                return result;
-            if (bestLeft == null) {
-                result.add(bestRight);
-                return result;
-            }
-            if (bestRight == null){
-                result.add(bestLeft);
-                return result;
-            }
-            double dLeft = abs(t.getLeftGuard() - bestLeft.getRightGuard());
-            double dRight = abs(bestRight.getLeftGuard() - t.getRightGuard());
-            if (dLeft <= dRight) {
-                result.add(bestLeft);
-                return result;
-            }
-            result.add(bestRight);
-            return result;
-        }
-    }
-
-    public Multiset<Transition> getClosestIngoing(Transition t) {
-        Transition bestLeft = null;
-        Transition bestRight = null;
-        Multiset<Transition> overlapping = TreeMultiset.create();
-        for (Transition o : ingoing){
-            // NON OVERLAP CASES
-            if (o.getRightGuard() > t.getRightGuard() && o.getLeftGuard() > t.getRightGuard()) {
-                bestRight = o;
-                break;
-            }
-            if (o.getRightGuard() < t.getLeftGuard() && o.getLeftGuard() < t.getLeftGuard())
-                bestLeft = o;
-            // OVERLAP CASES: here we always take those candidates as the best ones
-            // totally included
-//            if (o.getLeftGuard() <= t.getLeftGuard() && t.getRightGuard() <= o.getRightGuard())
-//                overlapping.add(o);
-//            // overlap on the left
-//            if (o.getRightGuard() >= t.getLeftGuard() && o.getLeftGuard() <= t.getLeftGuard())
-//                overlapping.add(o);
-//            //overlap on the right
-//            if (o.getLeftGuard() <= t.getRightGuard() && o.getRightGuard() >= t.getRightGuard())
-//                overlapping.add(o);
-            if (t.isOverlappedBy(o))
-                overlapping.add(o);
-        }
-        // se overlapping ha elementi al suo interno, ritorna overlapping. Altrimenti ritorna il migliore più prossimo
-        // se esiste
-        if (! overlapping.isEmpty())
-            return overlapping;
-        else {
-            Multiset<Transition> result = TreeMultiset.create();
-            if (bestLeft == null && bestRight == null)
-                return result;
-            if (bestLeft == null) {
-                result.add(bestRight);
-                return result;
-            }
-            if (bestRight == null){
-                result.add(bestLeft);
-                return result;
-            }
-            double dLeft = abs(t.getLeftGuard() - bestLeft.getRightGuard());
-            double dRight = abs(bestRight.getLeftGuard() - t.getRightGuard());
-            if (dLeft <= dRight) {
-                result.add(bestLeft);
-                return result;
-            }
-            result.add(bestRight);
-            return result;
-        }
-    }
-
-    public Multiset<Transition> getOutgoing(Transition t) {
-        Multiset<Transition> overlapping = TreeMultiset.create();
-        for (Transition o : outgoing){
-            // OVERLAP CASES: here we always take those candidates as the best ones
-            if (t.isOverlappedBy(o))
-                overlapping.add(o);
-//             totally included
-//            if (o.getLeftGuard() <= t.getLeftGuard() && t.getRightGuard() <= o.getRightGuard())
-//                overlapping.add(o);
-//            // overlap on the left
-//            else if (o.getRightGuard() >= t.getLeftGuard() && o.getLeftGuard() <= t.getLeftGuard())
-//                overlapping.add(o);
-//            //overlap on the right
-//            else if (o.getLeftGuard() <= t.getRightGuard() && o.getRightGuard() >= t.getRightGuard())
-//                overlapping.add(o);
-        }
-        return overlapping;
-    }
-
-    public Multiset<Transition> getIngoing(Transition t) {
-        Multiset<Transition> overlapping = TreeMultiset.create();
-        for (Transition o : ingoing){
-            // OVERLAP CASES: here we always take those candidates as the best ones
-            if (t.isOverlappedBy(o))
-                overlapping.add(o);
-//            // totally included
-//            if (o.getLeftGuard() <= t.getLeftGuard() && t.getRightGuard() <= o.getRightGuard())
-//                overlapping.add(o);
-//            // overlap on the left
-//            else if (o.getRightGuard() >= t.getLeftGuard() && o.getLeftGuard() <= t.getLeftGuard())
-//                overlapping.add(o);
-//            //overlap on the right
-//            else if (o.getLeftGuard() <= t.getRightGuard() && o.getRightGuard() >= t.getRightGuard())
-//                overlapping.add(o);
-        }
-        return overlapping;
-    }
-
     public Transition getOutgoing(double value) {
         for (Transition t : outgoing){
-            if (value >= t.getLeftGuard() && value < t.getRightGuard())
+            // special case: singleton transitions
+            if (t.getLeftGuard() == t.getRightGuard() && value == t.getLeftGuard())
+                return t;
+            if (value > t.getLeftGuard() && value <= t.getRightGuard())
                 return t;
             // value < LG || value > RG
             if (value < t.getLeftGuard())
@@ -255,9 +82,13 @@ public class State{
         return null;
     }
 
-    public Transition getIngoing(double value) {
+    public Transition getIngoing(double value){
         for (Transition t : ingoing){
-            if (value >= t.getLeftGuard() && value < t.getRightGuard())
+            // special case: singleton transitions
+            if (t.getLeftGuard() == t.getRightGuard() && value == t.getLeftGuard())
+                return t;
+            // general case
+            if (value > t.getLeftGuard() && value <= t.getRightGuard())
                 return t;
             // value < LG || value > RG
             if (value < t.getLeftGuard())
@@ -267,74 +98,139 @@ public class State{
         return null;
     }
 
-    public void addOutgoing(Transition t) {
-        if (! equals(t.getSource()))
-            throw new IllegalArgumentException("Source state should be this");
-        if (! outgoing.contains(t)){
-            // fix per correggere multitransizioni che partono da uno stesso stato,
-            // finiscono in uno stesso stato, ed hanno transizioni consecurive.
-            boolean added = false;
-            Multiset<Transition> closeset = getClosestOutgoing(t);
-            for (Transition close : closeset){
-                State tdest = t.getDestination();
-                State cdest = close.getDestination();
-                if (tdest.equals(cdest) && close.isAdiacenTo(t)){
-//                        (t.getLeftGuard() == close.getRightGuard() || t.getRightGuard() == close.getLeftGuard())){
-                    close.addAll(t);
-                    if (close.getLeftGuard() >= t.getLeftGuard())
-                        close.setLeftGuard(t.getLeftGuard());
-                    if (close.getRightGuard() <= t.getRightGuard())
-                        close.setRightGuard(t.getRightGuard());
-                    added = true;
-                    break;
-                }
-            }
-            if (! added) {
-                outgoing.add(t);
-                t.getDestination().addIngoing(t);
-            }
+    public void addOutgoing(Transition t){
+        t.setSource(this);
+        if (! outgoing.contains(t)) {
+            outgoing.add(t);
+            t.getDestination().addIngoing(t);
         }
     }
 
-    public void addIngoing(Transition t) {
-        if (! equals(t.getDestination()))
-            throw new IllegalArgumentException("Destination state should be this");
+    public void addIngoing(Transition t){
+        t.setDestination(this);
         if (! ingoing.contains(t)) {
-            // fix per correggere multitransizioni che partono da uno stesso stato,
-            // finiscono in uno stesso stato, ed hanno transizioni consecurive.
-            boolean added = false;
-            Multiset<Transition> closeset = getClosestIngoing(t);
-            for (Transition close : closeset){
-                State tsource = t.getSource();
-                State csource = close.getSource();
-                if (tsource.equals(csource) && close.isAdiacenTo(t)){
-//                        (t.getLeftGuard() == close.getRightGuard() || t.getRightGuard() == close.getLeftGuard())){
-                    close.addAll(t);
-                    if (close.getLeftGuard() >= t.getLeftGuard())
-                        close.setLeftGuard(t.getLeftGuard());
-                    if (close.getRightGuard() <= t.getRightGuard())
-                        close.setRightGuard(t.getRightGuard());
-                    added = true;
-                    break;
-                }
-            }
-            if (! added) {
-                ingoing.add(t);
-                t.getSource().addOutgoing(t);
-            }
+            ingoing.add(t);
+            t.getSource().addOutgoing(t);
         }
     }
 
     public void removeOutgoing(Transition t) {
         if (outgoing.contains(t)) {
             outgoing.remove(t);
+            t.getDestination().removeIngoing(t);
         }
     }
 
-    public void removeIngoing(Transition t) {
-        if (ingoing.contains(t)) {
+    public void removeIngoing(Transition t){
+        if (ingoing.contains(t)){
             ingoing.remove(t);
             t.getSource().removeOutgoing(t);
+        }
+    }
+
+    public void mergeWith(State s){
+        // It merges s to this
+        //--------------------------
+        System.out.println("going to merge " + this + " with " + s);
+        // updating futures
+        Iterator<Future> fIterator = s.getFuturesIterator();
+        while (fIterator.hasNext()) {
+            Future f = fIterator.next();
+            fIterator.remove();
+            addFuture(f);
+        }
+        // updating ingoing transitions
+        Iterator<Transition> inIterator = s.getIngoingIterator();
+        while (inIterator.hasNext()) {
+            Transition t = inIterator.next();
+            s.removeIngoing(t);
+            addIngoing(t);
+        }
+        // updating outgoing transitions
+        Iterator<Transition> outIterator = s.getOutgoingIterator();
+        while (outIterator.hasNext()){
+            Transition t = outIterator.next();
+            s.removeOutgoing(t);
+            fold(t);
+        }
+        // fixing incongruencies and nondeterminisms
+        //sanitize();
+        // promotions only if this is RED (during clustering it never happens)
+        if (isRed()) {
+            for (Transition t : outgoing) {
+                State son = t.getDestination();
+                if (son.isWhite())
+                    son.promote();
+            }
+        }
+        // disposing s
+        s.dispose();
+    }
+
+    private void fold(Transition t) {
+        System.out.println("Folding " + t + " in " + this);
+        // CASE 1: non red state
+        State dest = t.getDestination();
+        if (! isRed()) {
+            addOutgoing(t);
+            // updating futures
+            Double firstValue = t.getMu();
+            Iterator<Future> fit = dest.getFuturesIterator();
+            while (fit.hasNext()) {
+                Future f = fit.next();
+                try {
+                    Future fatherFuture = (Future) f.clone();
+                    f.addFirst(firstValue);
+                    addFuture(fatherFuture);
+                } catch (CloneNotSupportedException e) {
+                    e.printStackTrace();
+                }
+            }
+        } else if (isLeaf()) {
+            // CASE 2: red leaf
+            addOutgoing(t);
+            // updating guards (this become a sink state)
+            t.setLeftGuard(Double.NEGATIVE_INFINITY);
+            t.setRightGuard(Double.POSITIVE_INFINITY);
+            // updating futures
+            Double firstValue = t.getMu();
+            Iterator<Future> fit = dest.getFuturesIterator();
+            while (fit.hasNext()) {
+                Future f = fit.next();
+                try {
+                    Future fatherFuture = (Future) f.clone();
+                    f.addFirst(firstValue);
+                    addFuture(fatherFuture);
+                } catch (CloneNotSupportedException e) {
+                    e.printStackTrace();
+                }
+            }
+        } else {
+            // CASE 3: red non leaf
+            // find the overlapping transition.
+            // Please note: t is a singleton transition, hence it represents just one value (mu)
+            Transition overlapped = getOutgoing(t.getMu());
+            overlapped.addAll(t);
+            Double firstValue = t.getMu();
+            // updating futures in the father and in the new son
+            Iterator<Future> fit = dest.getFuturesIterator();
+            while (fit.hasNext()) {
+                Future f = fit.next();
+                fit.remove();
+                try {
+                    Future fatherFuture = (Future) f.clone();
+                    f.addFirst(firstValue);
+                    addFuture(fatherFuture);
+                } catch (CloneNotSupportedException e) {
+                    e.printStackTrace();
+                }
+            }
+            // recursive calls to handle the subtrees rooted in t's destination
+            Iterator<Transition> outIter = dest.getOutgoingIterator();
+            State ovDest = overlapped.getDestination();
+            while (outIter.hasNext())
+                ovDest.fold(outIter.next());
+            dest.dispose();
         }
     }
 
@@ -366,26 +262,36 @@ public class State{
         return id;
     }
 
-    public Iterator<Transition> getIngoingIterator(){
-        return ingoing.iterator();
-    }
-
     public Iterator<Transition> getOutgoingIterator(){
         return outgoing.iterator();
     }
 
-    public void promote(){
+    public Iterator<Transition> getIngoingIterator(){
+        return ingoing.iterator();
+    }
+
+    public State promote(){
         System.out.println("going to promote " + this);
-        if (color == Color.WHITE)
+        if (color == Color.WHITE) {
+            hypothesis.notifyPromotion(this);
             color = Color.BLUE;
-        else if (color == Color.BLUE){
-            color = Color.RED;
+        } else if (color == Color.BLUE) {
+            // calling the cluster for learning guards over transitions
+            hypothesis.notifyPromotion(this);
             cluster();
+            // updating pairs
+            // NOTE: if I'm here it means that there are no merges anymore
+            // where this is involved (we merge red - blue couples)
+            // NOTE: since this is BLUE, all its sons are WHITE by definition
+            for (Transition t : outgoing)
+                t.getDestination().promote();
+            color = Color.RED;
         }
+        return this;
     }
 
     public boolean isLeaf(){
-        return outgoing.size() == 0;
+        return outgoing.isEmpty();
     }
 
     public String toDot(){
@@ -404,10 +310,13 @@ public class State{
 
     public void dispose(){
         outgoing.clear();
-        ingoing.clear();
         futures.clear();
+        // if this is blue, and it has been merged,
+        // other possible optional merges must be discarded
+        hypothesis.notifyDisposal(this);
         pairs.clear();
     }
+
 
     // FUTURES STUFF (new similarity criterium)
 
@@ -426,21 +335,6 @@ public class State{
     public int getFutures(){
         return futures.size();
     }
-
-//    public Future getClosestFuture(Future f){
-//        Future r = new Future();
-//        State s = this;
-//        for (Double value : f){
-//            if (s == null)
-//                break;
-//            Transition t = s.getClosestOutgoing(value);
-//            if (t == null)
-//                break;
-//            r.add(t.getMu());
-//            s = t.getDestination();
-//        }
-//        return r;
-//    }
 
     public Future getClosestFuture(Future f){
         // nuova versione che non genera il futuro più vicino,
@@ -484,13 +378,11 @@ public class State{
     }
 
     public void addMerge(CandidateMerge pair){
-        if (color == Color.BLUE)
-            pairs.add(pair);
+        pairs.add(pair);
     }
 
     public void removeMerge(CandidateMerge pair){
-        if (color == Color.BLUE)
-            pairs.remove(pair);
+        pairs.remove(pair);
     }
 
     public Iterator<CandidateMerge> getMergesIterator(){
@@ -501,36 +393,32 @@ public class State{
 
     // RED STATE SPECIFIC STUFF
 
-    public void cluster(){
-        if (color == Color.RED) {
-            PriorityQueue<TransitionMerge> q = new PriorityQueue<>();
-            // INIZIALIZATION
-            inizializeClustering(q);
-            // CLUSTERING
-            performClustering(q);
-            // EXPANDING TRANSITIONS
-            expandTransitions();
-        }
+    public void cluster() {
+        System.out.println("Clustering " + this);
+        PriorityQueue<TransitionMerge> q = new PriorityQueue<>();
+        // INIZIALIZATION
+        inizializeClustering(q);
+        // CLUSTERING
+        performClustering(q);
+        // EXPANDING TRANSITIONS
+        expandTransitions();
     }
 
     private void inizializeClustering(PriorityQueue<TransitionMerge> q){
         Iterator<Transition> fanout = outgoing.iterator();
-        ClusteredTransition previous = null;
+        ClusteredTransition prev = null;
         while (fanout.hasNext()) {
             ClusteredTransition current = new ClusteredTransition(fanout.next());
-            if (previous == null)
-                previous = current;
-            else if (previous.getRightGuard() == current.getLeftGuard()) {
-                // quando ci sono transizioni singleton con guardie in comune,
-                // si ha un nondeterminismo, quindi a prescindere dallo score
-                // queste vanno unite.
-                addToCluster(previous, current);
-            } else {
-                TransitionMerge m = new TransitionMerge(previous, current);
-                previous.setNextMerge(m);
+            if (prev == null)
+                prev = current;
+            else if (prev.isOverlappedBy(current) || prev.isAdiacenTo(current))
+                addToCluster(prev, current);
+            else {
+                TransitionMerge m = new TransitionMerge(prev, current);
+                prev.setNextMerge(m);
                 current.setPreviousMerge(m);
                 q.add(m);
-                previous = current;
+                prev = current;
             }
         }
     }
@@ -567,7 +455,7 @@ public class State{
                 double r = prev.getRightGuard();
                 double d = (l - r) / 2.;
                 t.setLeftGuard(l - d);
-                prev.setRightGuard(r + d);
+                prev.setRightGuard(l - d);
                 prev = t;
             }
         }
@@ -576,7 +464,7 @@ public class State{
     }
 
     public static boolean addToCluster(Transition cluster, Transition t){
-        // nota: questo metodo viene chiamato quando un blu satte viene promosso a red,
+        // nota: questo metodo viene chiamato quando un blu state viene promosso a red,
         // ergo tutte le sue transizioni uscenti non sono loop !! (è importante perché siamo certi, in questo caso,
         // che la destinazione di qualsiasi transizione uscente dal novello red state sarà non red (e quindi potremo
         // aggiungere transizioni come se non ci fosse un domani).
@@ -606,6 +494,7 @@ public class State{
         return true;
     }
 
+
     // END OF RED STATE SPECIFIC STUFF
 
 
@@ -617,12 +506,14 @@ public class State{
     private Set<Future> futures;
     private Color color;
     private Collection<CandidateMerge> pairs;
+    private Hypothesis hypothesis;
     public static final int MIN_TRANSITIONS = 4;
 
     //UNIT TEST
     public static void main(String[] args){
-        State s1 = new State();
-        State s2 = new State();
+        Hypothesis h = new Hypothesis();
+        State s1 = new State(h);
+        State s2 = new State(h);
 
         Transition t1 = new UnclusteredTransition(s1, s2);
         t1.add(2.);
