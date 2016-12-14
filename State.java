@@ -22,7 +22,7 @@ import com.google.common.collect.TreeMultiset;
 import java.util.*;
 
 
-public class State{
+public class State {
 
 
     public State(Hypothesis h){
@@ -101,16 +101,46 @@ public class State{
     public void addOutgoing(Transition t){
         t.setSource(this);
         if (! outgoing.contains(t)) {
-            outgoing.add(t);
-            t.getDestination().addIngoing(t);
+//            outgoing.add(t);
+//            t.getDestination().addIngoing(t);
+            boolean updated = false;
+            for (Transition c : outgoing)
+                if (c.isAdiacenTo(t)) {
+                    c.addAll(t);
+                    if (c.getLeftGuard() >= t.getLeftGuard())
+                        c.setLeftGuard(t.getLeftGuard());
+                    if (c.getRightGuard() <= t.getRightGuard())
+                        c.setRightGuard(t.getRightGuard());
+                    updated = true;
+                    break;
+                }
+            if (! updated){
+                outgoing.add(t);
+                t.getDestination().addIngoing(t);
+            }
         }
     }
 
     public void addIngoing(Transition t){
         t.setDestination(this);
         if (! ingoing.contains(t)) {
-            ingoing.add(t);
-            t.getSource().addOutgoing(t);
+//            ingoing.add(t);
+//            t.getSource().addOutgoing(t);
+            boolean updated = false;
+            for (Transition c : ingoing)
+                if (c.isAdiacenTo(t)){
+                    c.addAll(t);
+                    if (c.getLeftGuard() >= t.getLeftGuard())
+                        c.setLeftGuard(t.getLeftGuard());
+                    if (c.getRightGuard() <= t.getRightGuard())
+                        c.setRightGuard(t.getRightGuard());
+                    updated = true;
+                    break;
+                }
+            if (! updated) {
+                ingoing.add(t);
+                t.getSource().addOutgoing(t);
+            }
         }
     }
 
@@ -147,15 +177,15 @@ public class State{
             addIngoing(t);
         }
         // updating outgoing transitions
+        // note: it is important that firs it updates outgoing transitions and then the ingoing ones
+        // if we change the order we could have adiacent transitions in a still correct result.
         Iterator<Transition> outIterator = s.getOutgoingIterator();
         while (outIterator.hasNext()){
             Transition t = outIterator.next();
             s.removeOutgoing(t);
             fold(t);
         }
-        // fixing incongruencies and nondeterminisms
-        //sanitize();
-        // promotions only if this is RED (during clustering it never happens)
+        // eventual promotions
         if (isRed()) {
             for (Transition t : outgoing) {
                 State son = t.getDestination();
@@ -168,62 +198,28 @@ public class State{
     }
 
     private void fold(Transition t) {
-        System.out.println("Folding " + t + " in " + this);
+        //System.out.println("Folding " + t + " in " + this);
         // CASE 1: non red state
         State dest = t.getDestination();
         if (! isRed()) {
             addOutgoing(t);
-            // updating futures
-            Double firstValue = t.getMu();
-            Iterator<Future> fit = dest.getFuturesIterator();
-            while (fit.hasNext()) {
-                Future f = fit.next();
-                try {
-                    Future fatherFuture = (Future) f.clone();
-                    f.addFirst(firstValue);
-                    addFuture(fatherFuture);
-                } catch (CloneNotSupportedException e) {
-                    e.printStackTrace();
-                }
-            }
         } else if (isLeaf()) {
             // CASE 2: red leaf
             addOutgoing(t);
             // updating guards (this become a sink state)
             t.setLeftGuard(Double.NEGATIVE_INFINITY);
             t.setRightGuard(Double.POSITIVE_INFINITY);
-            // updating futures
-            Double firstValue = t.getMu();
-            Iterator<Future> fit = dest.getFuturesIterator();
-            while (fit.hasNext()) {
-                Future f = fit.next();
-                try {
-                    Future fatherFuture = (Future) f.clone();
-                    f.addFirst(firstValue);
-                    addFuture(fatherFuture);
-                } catch (CloneNotSupportedException e) {
-                    e.printStackTrace();
-                }
-            }
         } else {
             // CASE 3: red non leaf
             // find the overlapping transition.
             // Please note: t is a singleton transition, hence it represents just one value (mu)
             Transition overlapped = getOutgoing(t.getMu());
             overlapped.addAll(t);
-            Double firstValue = t.getMu();
-            // updating futures in the father and in the new son
+            // updating futures in the new son
             Iterator<Future> fit = dest.getFuturesIterator();
             while (fit.hasNext()) {
                 Future f = fit.next();
-                fit.remove();
-                try {
-                    Future fatherFuture = (Future) f.clone();
-                    f.addFirst(firstValue);
-                    addFuture(fatherFuture);
-                } catch (CloneNotSupportedException e) {
-                    e.printStackTrace();
-                }
+                overlapped.getDestination().addFuture(f);
             }
             // recursive calls to handle the subtrees rooted in t's destination
             Iterator<Transition> outIter = dest.getOutgoingIterator();
@@ -311,10 +307,10 @@ public class State{
     public void dispose(){
         outgoing.clear();
         futures.clear();
+        pairs.clear();
         // if this is blue, and it has been merged,
         // other possible optional merges must be discarded
         hypothesis.notifyDisposal(this);
-        pairs.clear();
     }
 
 
@@ -424,7 +420,7 @@ public class State{
     }
 
     private void performClustering(PriorityQueue<TransitionMerge> q){
-        System.out.println("Clustering transitions of " + this);
+        //System.out.println("Clustering transitions of " + this);
         while (q.size() >= MIN_TRANSITIONS){
             TransitionMerge m = q.poll();
             ClusteredTransition f = m.getFirst();
@@ -486,13 +482,23 @@ public class State{
         Iterator<Transition> oi = oldDest.getOutgoingIterator();
         while (oi.hasNext()) {
             Transition out = oi.next();
-            out.setSource(newDest);
             newDest.addOutgoing(out);
         }
         // now we can dispose the old-destination state
         oldDest.dispose();
         return true;
     }
+
+//    public static boolean addToCluster(Transition cluster, Transition t){
+//        if (cluster.equals(t))
+//            return false;
+//        State newDest = cluster.getDestination();
+//        State oldDest = t.getDestination();
+//        oldDest.removeIngoing(t);
+//        cluster.addAll(t);
+//        newDest.mergeWith(oldDest);
+//        return true;
+//    }
 
 
     // END OF RED STATE SPECIFIC STUFF
@@ -507,7 +513,7 @@ public class State{
     private Color color;
     private Collection<CandidateMerge> pairs;
     private Hypothesis hypothesis;
-    public static final int MIN_TRANSITIONS = 4;
+    public static final int MIN_TRANSITIONS = 2;
 
     //UNIT TEST
     public static void main(String[] args){

@@ -10,14 +10,11 @@
 package RAI.strategies;
 
 
-import RAI.CandidateMerge;
 import RAI.Future;
 import RAI.State;
 import RAI.Strategy;
 
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 
 
 public class AvgPrefixEuclidean implements Strategy{
@@ -28,10 +25,62 @@ public class AvgPrefixEuclidean implements Strategy{
     }
 
 
+//    @Override
+//    public Double rank(CandidateMerge m) {
+//        State rs = m.getRedState();
+//        State bs = m.getBlueState();
+//        System.out.println("Scoring couple (" + rs.getId() + ", " + bs.getId() + ")");
+//        // base cases
+//        if (rs.isLeaf() && bs.isLeaf())
+//            return 0.;
+//        // general case
+//        Double score = 0.;
+//        int n = 0;
+////        System.out.println(">>>");
+////        Map<Future, Integer> bestChoices = new HashMap<>();
+//        Iterator<Future> blueFutures = bs.getFuturesIterator();
+//        while (blueFutures.hasNext()){
+//            Future blueFuture = blueFutures.next();
+//            Future redFuture = rs.getClosestFuture(blueFuture);
+////            if (! bestChoices.containsKey(blueFuture))
+////                bestChoices.put(blueFuture, 1);
+////            else
+////                bestChoices.put(blueFuture, bestChoices.get(blueFuture) + 1);
+//            score += assess(redFuture, blueFuture);
+//            //System.out.println(blueFuture + " " + redFuture + " " + redFuture.getCloseness(blueFuture));
+//            n += 1;
+//        }
+////        for (Future f : bestChoices.keySet())
+////            System.out.println(f + " " + bestChoices.get(f));
+////        System.out.println("<<<");
+////        bestChoices = new HashMap<>();
+//        Iterator<Future> redFutures = rs.getFuturesIterator();
+//        while (redFutures.hasNext()){
+//            Future redFuture = redFutures.next();
+//            Future blueFuture = bs.getClosestFuture(redFuture);
+//            score += assess(blueFuture, redFuture);
+////            if (! bestChoices.containsKey(redFuture))
+////                bestChoices.put(redFuture, 1);
+////            else
+////                bestChoices.put(redFuture, bestChoices.get(redFuture) + 1);
+//            //System.out.println(redFuture + " " + blueFuture + " " + blueFuture.getCloseness(redFuture));
+//            n += 1;
+//        }
+////        for (Future f : bestChoices.keySet())
+////            System.out.println(f + " " + bestChoices.get(f));
+//        if (n == 0)
+//            return Double.POSITIVE_INFINITY;
+//        System.out.println(score + " " + n + " " + (score / (double) n));
+//        return score / (double) n;
+//    }
+
+//    @Override
+//    public boolean assess(CandidateMerge m) {
+//        return m.getScore() < threshold;
+//    }
+
     @Override
-    public Double rank(CandidateMerge m) {
-        State rs = m.getRedState();
-        State bs = m.getBlueState();
+    public Double rank(State rs, State bs) {
         System.out.println("Scoring couple (" + rs.getId() + ", " + bs.getId() + ")");
         // base cases
         if (rs.isLeaf() && bs.isLeaf())
@@ -78,8 +127,8 @@ public class AvgPrefixEuclidean implements Strategy{
     }
 
     @Override
-    public boolean assess(CandidateMerge m) {
-        return m.getScore() < threshold;
+    public boolean assess(State r, State b) {
+        return rank(r, b) < threshold;
     }
 
     @Override

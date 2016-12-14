@@ -10,7 +10,6 @@
 package RAI.strategies;
 
 
-import RAI.CandidateMerge;
 import RAI.Future;
 import RAI.State;
 import RAI.Strategy;
@@ -26,11 +25,7 @@ public class VotingWithPrefixes implements Strategy{
     }
 
     @Override
-    public Double rank(CandidateMerge m) {
-        // Each copuple of futures is marked as close or far
-        // the rank is the amount of couples of futures we have found as far
-        State rs = m.getRedState();
-        State bs = m.getBlueState();
+    public Double rank(State rs, State bs) {
         System.out.println("Scoring couple (" + rs.getId() + ", " + bs.getId() + ")");
         // base cases
         if (rs.isLeaf() && bs.isLeaf())
@@ -45,8 +40,8 @@ public class VotingWithPrefixes implements Strategy{
             Double diffs = assess(redFuture, blueFuture);
             int prefixsize = (redFuture.size() < blueFuture.size())?(redFuture.size()):(blueFuture.size());
             if (diffs > votingThreshold * prefixsize)
-                    // this couple is far
-                    score += 1.;
+                // this couple is far
+                score += 1.;
             //System.out.println(blueFuture + " " + redFuture + " " + redFuture.getCloseness(blueFuture));
         }
         //System.out.println("<<<");
@@ -66,11 +61,9 @@ public class VotingWithPrefixes implements Strategy{
     }
 
     @Override
-    public boolean assess(CandidateMerge m) {
-        State rs = m.getRedState();
-        State bs = m.getBlueState();
-        System.out.println("CHECK: " + m.getScore() + ", " + votingThreshold * (rs.getFutures() + bs.getFutures()));
-        return m.getScore() <= votingThreshold * (rs.getFutures() + bs.getFutures());
+    public boolean assess(State rs, State bs) {
+        System.out.println("CHECK: " + rank(rs, bs) + ", " + votingThreshold * (rs.getFutures() + bs.getFutures()));
+        return rank(rs, bs) <= votingThreshold * (rs.getFutures() + bs.getFutures());
     }
 
     @Override

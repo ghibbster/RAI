@@ -13,10 +13,10 @@ package RAI;
 public interface Strategy {
 
     // scoring function
-    public Double rank(CandidateMerge m);
+    public Double rank(State r, State b);
 
     // compatibility check
-    public boolean assess(CandidateMerge m);
+    public boolean assess(State r, State b);
 
     // distance measure between future continuations
     public Double assess(Future f1, Future f2);

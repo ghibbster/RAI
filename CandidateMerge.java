@@ -10,7 +10,7 @@
 package RAI;
 
 
-public class CandidateMerge implements Comparable<CandidateMerge>{
+public class CandidateMerge{
 
 
     public CandidateMerge(State rs, State bs){
@@ -18,25 +18,7 @@ public class CandidateMerge implements Comparable<CandidateMerge>{
         blueState = bs;
     }
 
-    // SCORING STUFF
-
-    public double getScore(){
-        return score;
-    }
-
-    public void computeScore(Strategy strategy){
-        score = strategy.rank(this);
-    }
-
-
     //UTILITY
-
-    @Override
-    public int compareTo(CandidateMerge o){
-        if (score != o.getScore())
-            return (score > o.getScore())?(1):(-1);
-        return 0;
-    }
 
     public boolean equals(Object o){
         if (o == null)
@@ -56,7 +38,7 @@ public class CandidateMerge implements Comparable<CandidateMerge>{
 
     @Override
     public String toString(){
-        return "{" + redState.getId() + ":" + blueState.getId() + ":" + score + "}";
+        return "{" + redState.getId() + ":" + blueState.getId() + "}";
     }
 
     public State getRedState() {
@@ -70,7 +52,6 @@ public class CandidateMerge implements Comparable<CandidateMerge>{
 
     private State redState;
     private State blueState;
-    private Double score;
 
 
 }

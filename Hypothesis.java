@@ -9,7 +9,7 @@
 
 package RAI;
 
-import RAI.strategies.AvgPrefixEuclidean;
+import RAI.strategies.NNStrategy;
 import RAI.transition_clustering.Transition;
 import RAI.transition_clustering.UnclusteredTransition;
 import java.io.*;
@@ -27,11 +27,11 @@ import java.util.regex.Pattern;
 public class Hypothesis {
 
 
-
     public Hypothesis(){
         root = new State(this);
-        merges = new PriorityQueue<>();
+        allowedMerges = new HashSet<>();
         redStates = new HashSet<>();
+        blueStates = new HashSet<>();
     }
 
     private void prefixTree(String trainingPath){
@@ -108,32 +108,40 @@ public class Hypothesis {
         // it gets called before updating s's fields as a consequence of the promotion
         if (s.isBlue()) {
             redStates.add(s);
+            blueStates.remove(s);
+            // flushing possible couples where s plays the blue role
             Iterator<CandidateMerge> pairs = s.getMergesIterator();
             while (pairs.hasNext()){
                 CandidateMerge pair = pairs.next();
-                merges.remove(pair);
+                System.out.println("Popping " + pair);
                 pairs.remove();
+                allowedMerges.remove(pair);
             }
-        }else if (s.isWhite())
+            // adding new couples where s plays the red role
+            for (State blueState : blueStates) {
+                CandidateMerge pair = new CandidateMerge(s, blueState);
+                System.out.println("Pushing " + pair);
+                s.addMerge(pair);
+                allowedMerges.add(pair);
+            }
+        }else if (s.isWhite()) {
+            blueStates.add(s);
             for (State redState : redStates) {
                 CandidateMerge pair = new CandidateMerge(redState, s);
-                pair.computeScore(strategy);
-                merges.add(pair);
+                System.out.println("Pushing " + pair);
                 s.addMerge(pair);
+                allowedMerges.add(pair);
             }
+        }
     }
 
     public void notifyDisposal(State s){
-        Iterator<CandidateMerge> pairs = s.getMergesIterator();
-        Collection<CandidateMerge> toRemove = new LinkedList<>();
-        // gathering pairs to remove
-        while (pairs.hasNext())
-            toRemove.add(pairs.next());
-        // doing the actual removal
-        for (CandidateMerge pair : toRemove) {
-            merges.remove(pair);
-            s.removeMerge(pair);
+        for (State red : redStates) {
+            CandidateMerge pair = new CandidateMerge(red, s);
+            //System.out.println("Popping " + pair);
+            allowedMerges.remove(pair);
         }
+        blueStates.remove(s);
     }
 
     // END OF CANDIDATE MERGES STUFF
@@ -142,21 +150,41 @@ public class Hypothesis {
         prefixTree(samplePath);
         root.promote().promote();
         System.out.println("Prefix Tree created");
-        while (! merges.isEmpty()){
-            CandidateMerge pair = merges.poll();
+        while (true){
+            CandidateMerge pair = chooseBestMerge();
+            if (pair == null)
+                break;
             System.out.println("Considering couple " + pair);
+            State rs = pair.getRedState();
             State bs = pair.getBlueState();
-            if (strategy.assess(pair)) {
-                State rs = pair.getRedState();
+            if (strategy.assess(rs, bs))
                 rs.mergeWith(bs);
-            }else {
+            else {
                 System.out.println("Discarding " + pair);
-                merges.remove(pair);
                 bs.removeMerge(pair);
                 if (! bs.hasMerges())
                     bs.promote();
             }
         }
+    }
+
+    private CandidateMerge chooseBestMerge(){
+        Double bestScore = Double.POSITIVE_INFINITY;
+        CandidateMerge bestMerge = null;
+        for (CandidateMerge c : allowedMerges){
+            State red = c.getRedState();
+            State blue = c.getBlueState();
+            Double score = strategy.rank(red, blue);
+            System.out.println("Evaluated merge between <RED " + red.getId() + "> and <BLUE " + blue.getId() + "> with score " + score);
+            if (score < bestScore){
+                bestMerge = c;
+                bestScore = score;
+            }
+        }
+        if (bestMerge != null)
+            System.out.println("Popping " + bestMerge);
+        allowedMerges.remove(bestMerge);
+        return bestMerge;
     }
 
     public void toDot(String path){
@@ -189,8 +217,9 @@ public class Hypothesis {
 
 
     private State root;
-    private PriorityQueue<CandidateMerge> merges;
     private Set<State> redStates;
+    private Set<State> blueStates;
+    private Set<CandidateMerge> allowedMerges;
     private Strategy strategy;
     private static final Pattern stateRE = Pattern.compile(
             "^(?<sid>\\d+) \\[shape=(circle|doublecircle), label=\\\"\\d+\\\\n(?<mu>-?\\d*.?\\d+)\\\"\\];$");
@@ -202,18 +231,18 @@ public class Hypothesis {
 
     //unit test
     public static void main(String[] args){
-        String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/3states/3states.sample";
+        String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/5states/5states.sample";
         //double threshold = 0.41355618141549232;
         double threshold = 0.18;
         //double threshold = 1.9;
         String dot = train + ".DOT";
         Hypothesis h = new Hypothesis();
-        h.setStrategy(new AvgPrefixEuclidean(threshold));
+        //h.setStrategy(new AvgPrefixEuclidean(threshold));
         //h.setStrategy(new VotingWithPrefixes(5., .2));
+        h.setStrategy(new NNStrategy(0.05));
         h.minimize(train);
         h.toDot(dot);
         System.out.println("#states: " + h.redStates.size());
-        System.out.println(h.redStates);
     }
 
 
