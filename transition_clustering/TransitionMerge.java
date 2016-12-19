@@ -10,20 +10,22 @@
 package RAI.transition_clustering;
 
 
-public class TransitionMerge implements Comparable<TransitionMerge>{
+import RAI.Data;
+
+public class TransitionMerge<T extends Data<T>> implements Comparable<TransitionMerge<T>>{
 
 
-    public TransitionMerge(ClusteredTransition f, ClusteredTransition s){
+    public TransitionMerge(ClusteredTransition<T> f, ClusteredTransition<T> s){
         first = f;
         second = s;
         score = f.getCloseness(s);
     }
 
-    public ClusteredTransition getFirst() {
+    public ClusteredTransition<T> getFirst() {
         return first;
     }
 
-    public ClusteredTransition getSecond() {
+    public ClusteredTransition<T> getSecond() {
         return second;
     }
 
@@ -32,11 +34,11 @@ public class TransitionMerge implements Comparable<TransitionMerge>{
     }
 
     public void updateScore(){
-        first.getCloseness(second);
+        score = first.getCloseness(second);
     }
 
     @Override
-    public int compareTo(TransitionMerge o) {
+    public int compareTo(TransitionMerge<T> o) {
         if ((first.equals(o.getFirst()) && second.equals(o.getSecond())) ||
         (first.equals(o.getSecond())) && second.equals(o.getFirst()))
             return 0;
@@ -65,16 +67,16 @@ public class TransitionMerge implements Comparable<TransitionMerge>{
         return first + " --- " + second + " --- " + score;
     }
 
-    public void setFirst(ClusteredTransition first) {
+    public void setFirst(ClusteredTransition<T> first) {
         this.first = first;
     }
 
-    public void setSecond(ClusteredTransition second) {
+    public void setSecond(ClusteredTransition<T> second) {
         this.second = second;
     }
 
-    private ClusteredTransition first;
-    private ClusteredTransition second;
+    private ClusteredTransition<T> first;
+    private ClusteredTransition<T> second;
     private double score;
 
 

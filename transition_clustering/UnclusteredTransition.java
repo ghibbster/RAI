@@ -9,18 +9,17 @@
 
 package RAI.transition_clustering;
 
-import RAI.Future;
+import RAI.Data;
 import RAI.State;
-
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 
 
-public class UnclusteredTransition implements Transition{
+public class UnclusteredTransition<T extends Data<T>> implements Transition<T>{
 
 
-    public UnclusteredTransition(State source, State destination) {
+    public UnclusteredTransition(State<T> source, State<T> destination) {
         this.source = source;
         this.destination = destination;
         this.values = new LinkedList<>();
@@ -31,7 +30,7 @@ public class UnclusteredTransition implements Transition{
         this.leftguard = Double.POSITIVE_INFINITY;
     }
 
-    public UnclusteredTransition(State source, State destination, Double leftguard, Double rightguard){
+    public UnclusteredTransition(State<T> source, State<T> destination, Double leftguard, Double rightguard){
         this.source = source;
         this.destination = destination;
         this.leftguard = leftguard;
@@ -42,24 +41,24 @@ public class UnclusteredTransition implements Transition{
         this.oldsigmasquared = 0.;
     }
 
-    public UnclusteredTransition(State source, State destination, double value) {
+    public UnclusteredTransition(State<T> source, State<T> destination, double value) {
         this(source, destination);
         this.add(value);
     }
 
-    public State getSource() {
+    public State<T> getSource() {
         return source;
     }
 
-    public void setSource(State source) {
+    public void setSource(State<T> source) {
         this.source = source;
     }
 
-    public State getDestination() {
+    public State<T> getDestination() {
         return destination;
     }
 
-    public void setDestination(State destination) {
+    public void setDestination(State<T> destination) {
         this.destination = destination;
     }
 
@@ -106,63 +105,16 @@ public class UnclusteredTransition implements Transition{
         values.add(value);
     }
 
-    public void addAll(Transition t){
+    public void addAll(Transition<T> t){
         for (Double v : t)
             this.add(v);
     }
 
-    public double getCloseness(Transition t){
+    public double getCloseness(Transition<T> t){
         // future based distance used for clustering purposes
-        // quadratic in the number of futures in this.destination and t.destination
-        State tDest = t.getDestination();
-        if (destination.isLeaf() && tDest.isLeaf())
-            // if both the destinations have no futures ... then ok, zero distance
-            return 0.;
-        if (destination.isLeaf()){
-            double sum = 0.;
-            int n = 0;
-            Iterator<Future> fs = tDest.getFuturesIterator();
-            while (fs.hasNext()){
-                Future tf = fs.next();
-                n += 1;
-                sum += tf.getCloseness(null);
-            }
-            return sum / ((double) n);
-        }
-        if (tDest.isLeaf()){
-            double sum = 0.;
-            int n = 0;
-            Iterator<Future> fs = destination.getFuturesIterator();
-            while (fs.hasNext()){
-                Future tf = fs.next();
-                n += 1;
-                sum += tf.getCloseness(null);
-            }
-            return sum / ((double) n);
-        }
-        // both destination and tDest are not null
-        double sum = 0.;
-        Iterator<Future> thisfs = tDest.getFuturesIterator();
-        int n = 0;
-        //System.out.println(">>>");
-        while (thisfs.hasNext()){
-            Future thisf = thisfs.next();
-            Future tf = destination.getClosestFuture(thisf);
-            //System.out.println("F " + thisf + " " + tf + " " + thisf.getAvgPrefixEuclideanScore(tf));
-            sum += thisf.getCloseness(tf);
-            n += 1;
-        }
-        //System.out.println("<<<");
-        Iterator<Future> fs = destination.getFuturesIterator();
-        while (fs.hasNext()){
-            Future tf = fs.next();
-            Future thisf = tDest.getClosestFuture(tf);
-            //System.out.println("F " + tf + " " + thisf + " " + thisf.getAvgPrefixEuclideanScore(tf));
-            sum += tf.getCloseness(thisf);
-            n += 1;
-        }
-        //System.out.println("---");
-        return sum / ((double) n);
+        T thisData = destination.getData();
+        T tData = t.getDestination().getData();
+        return thisData.rankWith(tData);
     }
 
     public boolean isAdiacenTo(Transition t){
@@ -230,22 +182,13 @@ public class UnclusteredTransition implements Transition{
     }
 
     @Override
-    public Transition clone() throws CloneNotSupportedException{
-        UnclusteredTransition cloned = (UnclusteredTransition) super.clone();
-        cloned.values = new LinkedList<>();
-        for (Double v : values)
-            cloned.values.add(v);
-        return cloned;
-    }
-
-    @Override
     public String toString(){
         return "( " + source.getId() + " [ " + leftguard + ", " + rightguard + " ] " + destination.getId() + " )";
     }
 
 
-    private State source;
-    private State destination;
+    private State<T> source;
+    private State<T> destination;
     private double leftguard;
     private double rightguard;
     private double mu;

@@ -10,10 +10,10 @@
 package RAI;
 
 
-public class CandidateMerge{
+public class CandidateMerge <T extends Data<T>>{
 
 
-    public CandidateMerge(State rs, State bs){
+    public CandidateMerge(State<T> rs, State<T> bs){
         redState = rs;
         blueState = bs;
     }
@@ -41,17 +41,17 @@ public class CandidateMerge{
         return "{" + redState.getId() + ":" + blueState.getId() + "}";
     }
 
-    public State getRedState() {
+    public State<T> getRedState() {
         return redState;
     }
 
-    public State getBlueState() {
+    public State<T> getBlueState() {
         return blueState;
     }
 
 
-    private State redState;
-    private State blueState;
+    private State<T> redState;
+    private State<T> blueState;
 
 
 }

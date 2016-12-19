@@ -10,14 +10,15 @@
 package RAI.transition_clustering;
 
 
+import RAI.Data;
 import RAI.State;
 import java.util.Iterator;
 
 
-public class ClusteredTransition implements Transition{
+public class ClusteredTransition<T extends Data<T>> implements Transition<T>{
 
 
-    public ClusteredTransition(Transition t){
+    public ClusteredTransition(Transition<T> t){
         transition = t;
         previous = null;
         next = null;
@@ -25,7 +26,7 @@ public class ClusteredTransition implements Transition{
 
 
     @Override
-    public void setSource(State newDest) {
+    public void setSource(State<T> newDest) {
         transition.setSource(newDest);
     }
 
@@ -40,27 +41,27 @@ public class ClusteredTransition implements Transition{
     }
 
     @Override
-    public State getSource() {
+    public State<T> getSource() {
         return transition.getSource();
     }
 
     @Override
-    public State getDestination() {
+    public State<T> getDestination() {
         return transition.getDestination();
     }
 
     @Override
-    public void addAll(Transition t) {
+    public void addAll(Transition<T> t) {
         transition.addAll(t);
     }
 
     @Override
-    public double getCloseness(Transition t) {
+    public double getCloseness(Transition<T> t) {
         return transition.getCloseness(t);
     }
 
     @Override
-    public void setDestination(State newShape) {
+    public void setDestination(State<T> newShape) {
         transition.setDestination(newShape);
     }
 
@@ -90,18 +91,13 @@ public class ClusteredTransition implements Transition{
     }
 
     @Override
-    public boolean isAdiacenTo(Transition t){
+    public boolean isAdiacenTo(Transition<T> t){
         return transition.isAdiacenTo(t);
     }
 
     @Override
-    public boolean isOverlappedBy(Transition t){
+    public boolean isOverlappedBy(Transition<T> t){
         return transition.isOverlappedBy(t);
-    }
-
-    @Override
-    public Transition clone() throws CloneNotSupportedException {
-        return (ClusteredTransition) super.clone();
     }
 
     @Override
@@ -129,27 +125,27 @@ public class ClusteredTransition implements Transition{
         return transition.toString();
     }
 
-    public void setPreviousMerge(TransitionMerge m){
+    public void setPreviousMerge(TransitionMerge<T> m){
         previous = m;
     }
 
-    public void setNextMerge(TransitionMerge m){
+    public void setNextMerge(TransitionMerge<T> m){
         next = m;
     }
 
-    public TransitionMerge getPreviousMerge(){
+    public TransitionMerge<T> getPreviousMerge(){
         return previous;
     }
 
-    public TransitionMerge getNextMerge(){
+    public TransitionMerge<T> getNextMerge(){
         return next;
     }
 
 
 
-    private Transition transition;
-    private TransitionMerge previous;
-    private TransitionMerge next;
+    private Transition<T> transition;
+    private TransitionMerge<T> previous;
+    private TransitionMerge<T> next;
 
 
 }

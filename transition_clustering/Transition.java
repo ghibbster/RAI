@@ -8,28 +8,28 @@
  */
 
 package RAI.transition_clustering;
-
+import RAI.Data;
 import RAI.State;
 
 
-public interface Transition extends Iterable<Double>, Comparable<Transition>, Cloneable{
+public interface Transition<T extends Data<T>> extends Iterable<Double>, Comparable<Transition>, Cloneable{
 
 
-    void setSource(State newDest);
+    void setSource(State<T> newDest);
 
     double getMu();
 
     public double getStd();
 
-    State getSource();
+    State<T> getSource();
 
-    State getDestination();
+    State<T> getDestination();
 
-    void addAll(Transition t);
+    void addAll(Transition<T> t);
 
-    double getCloseness(Transition t);
+    double getCloseness(Transition<T> t);
 
-    void setDestination(State newShape);
+    void setDestination(State<T> newShape);
 
     double getLeftGuard();
 
@@ -41,11 +41,9 @@ public interface Transition extends Iterable<Double>, Comparable<Transition>, Cl
 
     void add(Double v);
 
-    boolean isAdiacenTo(Transition t);
+    boolean isAdiacenTo(Transition<T> t);
 
-    boolean isOverlappedBy(Transition t);
-
-    public Transition clone() throws CloneNotSupportedException;
+    boolean isOverlappedBy(Transition<T> t);
 
 
 }
