@@ -12,7 +12,7 @@ package RAI;
 import RAI.nnstrategy.NNData;
 import RAI.nnstrategy.NNDataBuilder;
 import RAI.transition_clustering.Transition;
-import RAI.transition_clustering.UnclusteredTransition;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -63,7 +63,7 @@ public class Hypothesis <T extends Data<T>>{
                     double value = new Double(values[i]);
                     if (state.getOutgoing(value) == null) {
                         State<T> son = new State<>(this, dataBuilder.createInstance());
-                        Transition<T> newT = new UnclusteredTransition<>(state, son , value);
+                        Transition<T> newT = new Transition<>(state, son , value);
                         state.addOutgoing(newT);
                         newT.getDestination().addIngoing(newT);
                     }
@@ -106,7 +106,7 @@ public class Hypothesis <T extends Data<T>>{
                         if (! states.containsKey(dsid))
                             states.put(dsid, new State<>(this, null, dsid));
                         current = states.get(ssid);
-                        Transition<T> t = new UnclusteredTransition<>(current, states.get(dsid), lguard, rguard);
+                        Transition<T> t = new Transition<>(current, states.get(dsid), lguard, rguard);
                         current.addOutgoing(t);
                         t.getDestination().addIngoing(t);
                     }

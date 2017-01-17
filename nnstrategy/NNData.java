@@ -59,14 +59,12 @@ public class NNData implements Data<NNData> {
     public Double rankWith(NNData b){
         if (tails.isEmpty() || b.tails.isEmpty())
             return 0.;
-        System.out.println(" >>> " + tails);
-        System.out.println(" >>> " + localDistances);
-        int changes = getUnchanged(b) + b.getUnchanged(this);
-        //System.out.println("Score: " + score + ", n: " + (r.getFutures() + b.getFutures()) + ", changes: " + changes);
-        double score = changes / (double) (tails.size() + b.tails.size());
+        int unChanged = getUnchanged(b) + b.getUnchanged(this);
         int nr = tails.size();
         int nb = b.tails.size();
         int n = nr + nb;
+        double score = unChanged / (double) (n);
+        //System.out.println("Score: " + score + ", n: " + n + ", changes: " + unChanged);
         double lamr = nr / (double) n;
         double lamb = nb / (double) n;
         // double mu = (lamr * (nr - 1) + lamb * (nb - 1)) / n;
@@ -82,6 +80,7 @@ public class NNData implements Data<NNData> {
     public boolean isCompatibleWith(NNData b){
         if (tails.isEmpty() || b.tails.isEmpty())
             return true;
+        double r = rankWith(b);
         return 1. - rankWith(b) > alpha;
     }
 

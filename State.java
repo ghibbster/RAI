@@ -14,7 +14,6 @@
 package RAI;
 
 
-import RAI.transition_clustering.ClusteredTransition;
 import RAI.transition_clustering.Transition;
 import RAI.transition_clustering.TransitionMerge;
 import com.google.common.collect.TreeMultiset;
@@ -366,7 +365,6 @@ public class State <T extends Data<T>>{
         PriorityQueue<TransitionMerge<T>> q = new PriorityQueue<>();
         // INIZIALIZATION
         inizializeClustering(q);
-        System.out.println("BHO");
         // CLUSTERING
         performClustering(q);
         // EXPANDING TRANSITIONS
@@ -376,51 +374,53 @@ public class State <T extends Data<T>>{
     private void inizializeClustering(PriorityQueue<TransitionMerge<T>> q){
         // it adds all couple of candidate joins to the queue
         Iterator<Transition<T>> fanout = outgoing.iterator();
-        ClusteredTransition<T> prev = null;
+        Transition<T> prevT = null;
+        TransitionMerge<T> prevM = null;
         while (fanout.hasNext()) {
-            ClusteredTransition<T> current = new ClusteredTransition<>(fanout.next());
-            if (prev == null)
-                prev = current;
-            else if (prev.isOverlappedBy(current) || prev.isAdiacenTo(current))
-                addToCluster(prev, current);
-            else {
-                TransitionMerge<T> m = new TransitionMerge<>(prev, current);
-                prev.setNextMerge(m);
-                current.setPreviousMerge(m);
-                q.add(m);
-                prev = current;
-            }
+            Transition<T> currT = fanout.next();
+            if (prevT == null)
+                prevT = currT;
+            else if (prevT.isOverlappedBy(currT) || prevT.isAdiacenTo(currT))
+                addToCluster(prevT, currT);
+            else if (prevM == null){
+                    TransitionMerge<T> currM = new TransitionMerge<>(prevT, currT);
+                    q.add(currM);
+                    prevM = currM;
+                } else {
+                    TransitionMerge<T> currM = new TransitionMerge<>(prevM.getSecond(), currT);
+                    currM.setPrevious(prevM);
+                    prevM.setNext(currM);
+                    q.add(currM);
+                    prevM = currM;
+                }
         }
-    }
-
-    private double getRSS(){
-        double res = 0.;
-        for (Transition<T> t : outgoing) {
-            double mu = t.getMu();
-            for (Double v : t)
-                res += (v - mu) * (v - mu);
-        }
-        return res;
     }
 
     private void performClustering(PriorityQueue<TransitionMerge<T>> q){
-        //List<Double> l = new LinkedList<>();
         while (q.size() >= MAX_TRANS){
             TransitionMerge<T> m = q.poll();
-            ClusteredTransition<T> f = m.getFirst();
-            ClusteredTransition<T> s = m.getSecond();
-            //l.add(getRSS());
+            Transition<T> f = m.getFirst();
+            Transition<T> s = m.getSecond();
             if (addToCluster(f, s)) {
-                TransitionMerge<T> tm = s.getNextMerge();
-                if (tm != null) {
-                    q.remove(tm);
-                    tm.setFirst(f);
-                    tm.updateScore();
-                    q.add(tm);
-                    f.setNextMerge(tm);
+                TransitionMerge<T> p = m.getPrevious();
+                TransitionMerge<T> n = m.getNext();
+                if (p != null){
+                    q.remove(p);
+                    p.setNext(n);
+                    p.setSecond(f);
+                    p.updateScore();
+                    q.add(p);
+                }
+                if (n != null){
+                    q.remove(n);
+                    n.setPrevious(p);
+                    n.setFirst(f);
+                    n.updateScore();
+                    q.add(n);
                 }
             }
         }
+        q.clear();
     }
 
     private void expandTransitions(){
