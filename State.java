@@ -37,6 +37,7 @@ public class State <T extends Data<T>>{
         data = d;
         color = Color.WHITE;
         pairs = new HashSet<>();
+        root = false;
     }
 
     public int getId() {
@@ -64,6 +65,10 @@ public class State <T extends Data<T>>{
 
     public void setMu(double mu){
         this.mu = mu;
+    }
+
+    public void setRoot(){
+        root = true;
     }
 
     public Transition<T> getOutgoing(double value) {
@@ -123,23 +128,23 @@ public class State <T extends Data<T>>{
     public void addIngoing(Transition<T> t){
         t.setDestination(this);
         if (! ingoing.contains(t)) {
-//            ingoing.add(t);
-//            t.getSource().addOutgoing(t);
-            boolean updated = false;
-            for (Transition<T> c : ingoing)
-                if (c.isAdiacenTo(t)){
-                    c.addAll(t);
-                    if (c.getLeftGuard() >= t.getLeftGuard())
-                        c.setLeftGuard(t.getLeftGuard());
-                    if (c.getRightGuard() <= t.getRightGuard())
-                        c.setRightGuard(t.getRightGuard());
-                    updated = true;
-                    break;
-                }
-            if (! updated) {
-                ingoing.add(t);
-                t.getSource().addOutgoing(t);
-            }
+            ingoing.add(t);
+            t.getSource().addOutgoing(t);
+//            boolean updated = false;
+//            for (Transition<T> c : ingoing)
+//                if (c.isAdiacenTo(t)){
+//                    c.addAll(t);
+//                    if (c.getLeftGuard() >= t.getLeftGuard())
+//                        c.setLeftGuard(t.getLeftGuard());
+//                    if (c.getRightGuard() <= t.getRightGuard())
+//                        c.setRightGuard(t.getRightGuard());
+//                    updated = true;
+//                    break;
+//                }
+//            if (! updated) {
+//                ingoing.add(t);
+//                t.getSource().addOutgoing(t);
+//            }
         }
     }
 
@@ -158,7 +163,7 @@ public class State <T extends Data<T>>{
     }
 
     public void mergeWith(State<T> s){
-        // It merges s to this
+        // It merges s (blu) to this (red)
         //--------------------------
         System.out.println("going to merge " + this + " with " + s);
         // updating futures
@@ -288,12 +293,18 @@ public class State <T extends Data<T>>{
     }
 
     public String toDot(){
-        //String rep = id + " [shape=circle, label=\"" + id + "\\n" + String.format(Locale.ENGLISH, "%.2f", getMu()) + "\"];";
-        String rep = id + " [shape=circle, label=\"" + id + "\"];";
+        // we relabel the start state to 0 by convention
+        // NOTA BENE:
+        // siccome l'assegnazione per id avviene tramite variabile statica (idGenerator),
+        // quando learniamo più modelli con lo stesso run possiamo violare questa convenzione
+        int lId = (isRoot() && id != 0)?(0):(id);
+        String rep = lId + " [shape=circle, label=\"" + lId + "\"];";
         for (Transition t : outgoing)
             if (t.getDestination() != null) {
                 String rightBra = (t.getRightGuard() == Double.POSITIVE_INFINITY)?("["):("]");
-                rep += "\n\t" + id + " -> " + t.getDestination().getId() +
+                // we relabel the start state to 0 by convention
+                int lDestId = (t.getDestination().isRoot() && t.getDestination().getId() != 0)?(0):(t.getDestination().getId());
+                rep += "\n\t" + lId + " -> " + lDestId +
                         " [label=\"]" + String.format(Locale.ENGLISH, "%.2f", t.getLeftGuard()) +
                         ", " + String.format(Locale.ENGLISH, "%.2f", t.getRightGuard()) + rightBra +
                         " " + String.format(Locale.ENGLISH, "%.2f", t.getMu()) + "\"];";
@@ -310,7 +321,7 @@ public class State <T extends Data<T>>{
         hypothesis.notifyDisposal(this);
     }
 
-    // COLOR CHECKS
+    // COLOR AND ROOT CHECKS
 
     public boolean isWhite(){
         return color == Color.WHITE;
@@ -323,6 +334,8 @@ public class State <T extends Data<T>>{
     public boolean isRed(){
         return color == Color.RED;
     }
+
+    public boolean isRoot() { return root; }
 
     // END OF COLORS STUFF
 
@@ -353,6 +366,7 @@ public class State <T extends Data<T>>{
         PriorityQueue<TransitionMerge<T>> q = new PriorityQueue<>();
         // INIZIALIZATION
         inizializeClustering(q);
+        System.out.println("BHO");
         // CLUSTERING
         performClustering(q);
         // EXPANDING TRANSITIONS
@@ -360,6 +374,7 @@ public class State <T extends Data<T>>{
     }
 
     private void inizializeClustering(PriorityQueue<TransitionMerge<T>> q){
+        // it adds all couple of candidate joins to the queue
         Iterator<Transition<T>> fanout = outgoing.iterator();
         ClusteredTransition<T> prev = null;
         while (fanout.hasNext()) {
@@ -378,12 +393,23 @@ public class State <T extends Data<T>>{
         }
     }
 
+    private double getRSS(){
+        double res = 0.;
+        for (Transition<T> t : outgoing) {
+            double mu = t.getMu();
+            for (Double v : t)
+                res += (v - mu) * (v - mu);
+        }
+        return res;
+    }
+
     private void performClustering(PriorityQueue<TransitionMerge<T>> q){
-        //System.out.println("Clustering transitions of " + this);
-        while (q.size() >= MIN_TRANSITIONS){
+        //List<Double> l = new LinkedList<>();
+        while (q.size() >= MAX_TRANS){
             TransitionMerge<T> m = q.poll();
             ClusteredTransition<T> f = m.getFirst();
             ClusteredTransition<T> s = m.getSecond();
+            //l.add(getRSS());
             if (addToCluster(f, s)) {
                 TransitionMerge<T> tm = s.getNextMerge();
                 if (tm != null) {
@@ -458,7 +484,8 @@ public class State <T extends Data<T>>{
     private T data;
     private Collection<CandidateMerge> pairs;
     private Hypothesis<T> hypothesis;
-    public static final int MIN_TRANSITIONS = 2;
+    private boolean root;
+    private static final int MAX_TRANS = 2;
 
 
 }

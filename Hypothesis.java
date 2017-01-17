@@ -34,9 +34,11 @@ public class Hypothesis <T extends Data<T>>{
     public Hypothesis(DataBuilder<T> dataBuilder){
         this.dataBuilder = dataBuilder;
         root = new State<>(this, dataBuilder.createInstance());
+        root.setRoot();
         allowedMerges = new HashSet<>();
         redStates = new HashSet<>();
-        blueStates = new HashSet<>();
+        //blueStates = new HashSet<>();
+        blueStates = new LinkedList<>();
     }
 
     private static String[] suffix(String[] s, int i){
@@ -133,17 +135,21 @@ public class Hypothesis <T extends Data<T>>{
             // adding new couples where s plays the red role
             for (State<T> blueState : blueStates) {
                 CandidateMerge<T> pair = new CandidateMerge<>(s, blueState);
-                System.out.println("Pushing " + pair);
-                s.addMerge(pair);
-                allowedMerges.add(pair);
+                if (s.getData().isCompatibleWith(blueState.getData())){
+                    System.out.println("Pushing " + pair);
+                    s.addMerge(pair);
+                    allowedMerges.add(pair);
+                }
             }
         }else if (s.isWhite()) {
-            blueStates.add(s);
+            blueStates.addLast(s);
             for (State<T> redState : redStates) {
                 CandidateMerge<T> pair = new CandidateMerge<>(redState, s);
-                System.out.println("Pushing " + pair);
-                s.addMerge(pair);
-                allowedMerges.add(pair);
+                if (redState.getData().isCompatibleWith(s.getData())) {
+                    System.out.println("Pushing " + pair);
+                    s.addMerge(pair);
+                    allowedMerges.add(pair);
+                }
             }
         }
     }
@@ -159,25 +165,41 @@ public class Hypothesis <T extends Data<T>>{
 
     // END OF CANDIDATE MERGES STUFF
 
+//    public void minimize(String samplePath){
+//        prefixTree(samplePath);
+//        root.promote().promote();
+//        System.out.println("Prefix Tree created");
+//        while (true){
+//            CandidateMerge<T> pair = chooseBestMerge();
+//            if (pair == null)
+//                break;
+//            System.out.println("Considering couple " + pair);
+//            State<T> rs = pair.getRedState();
+//            State<T> bs = pair.getBlueState();
+//            if (rs.getData().isCompatibleWith(bs.getData()))
+//                rs.mergeWith(bs);
+//            else {
+//                System.out.println("Discarding " + pair);
+//                bs.removeMerge(pair);
+//                if (! bs.hasMerges())
+//                    bs.promote();
+//            }
+//        }
+//    }
+
     public void minimize(String samplePath){
         prefixTree(samplePath);
         root.promote().promote();
         System.out.println("Prefix Tree created");
         while (true){
             CandidateMerge<T> pair = chooseBestMerge();
-            if (pair == null)
-                break;
-            System.out.println("Considering couple " + pair);
-            State<T> rs = pair.getRedState();
-            State<T> bs = pair.getBlueState();
-            if (rs.getData().isCompatibleWith(bs.getData()))
+            if (pair != null){
+                State<T> rs = pair.getRedState();
+                State<T> bs = pair.getBlueState();
                 rs.mergeWith(bs);
-            else {
-                System.out.println("Discarding " + pair);
-                bs.removeMerge(pair);
-                if (! bs.hasMerges())
-                    bs.promote();
-            }
+            } else if (! blueStates.isEmpty()){
+                blueStates.getFirst().promote();
+            } else break;
         }
     }
 
@@ -190,10 +212,8 @@ public class Hypothesis <T extends Data<T>>{
             //Double score = red.getData().rankWith(blue.getData());
             T dr = red.getData();
             T db = blue.getData();
-            if (red.getId() == 0 && blue.getId() == 6130)
-                System.out.println("HOOK");
             Double score = dr.rankWith(db);
-            System.out.println("Evaluated merge between <RED " + red.getId() + "> and <BLUE " + blue.getId() + "> with score " + score);
+            //System.out.println("Evaluated merge between <RED " + red.getId() + "> and <BLUE " + blue.getId() + "> with score " + score);
             if (score < bestScore){
                 bestMerge = c;
                 bestScore = score;
@@ -236,7 +256,7 @@ public class Hypothesis <T extends Data<T>>{
 
     private State<T> root;
     private Set<State<T>> redStates;
-    private Set<State<T>> blueStates;
+    private LinkedList<State<T>> blueStates;
     private Set<CandidateMerge<T>> allowedMerges;
     private final DataBuilder<T> dataBuilder;
     private static final Pattern stateRE = Pattern.compile(
@@ -249,19 +269,22 @@ public class Hypothesis <T extends Data<T>>{
 
     //unit test
     public static void main(String[] args){
-        String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/2states/2states.sample";
-        //String train = "/home/npellegrino/PycharmProjects/pada/src/yahoo!/daily_1.rai";
-        //double threshold = 0.41355618141549232;
-        //double threshold = 0.18;
-        //double threshold = 1.9;
-        String dot = train + ".DOT";
-        NNDataBuilder n = new NNDataBuilder(0.05);
-        Hypothesis<NNData> h = new Hypothesis<>(n);
-        //VotingDataBuilder v = new VotingDataBuilder(0.12, 0.2);
-        //Hypothesis<VotingData> h = new Hypothesis<>(v);
-        h.minimize(train);
-        h.toDot(dot);
-        System.out.println("#states: " + h.redStates.size());
+        //for (int i = 1; i < 68; i ++) {
+            //System.out.println("PROB " + i);
+            String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/2statesV3/2statesV3.sample";
+            //String train = "/home/npellegrino/LEMMA/ydata-labeled-time-series-anomalies-v1_0/A1Benchmark/segmented/daily_seg_" + i + ".rai";
+            //double threshold = 0.41355618141549232;
+            //double threshold = 0.18;
+            //double threshold = 1.9;
+            String dot = train + ".DOT";
+            NNDataBuilder n = new NNDataBuilder(0.05);
+            Hypothesis<NNData> h = new Hypothesis<>(n);
+            //VotingDataBuilder v = new VotingDataBuilder(0.12, 0.2);
+            //Hypothesis<VotingData> h = new Hypothesis<>(v);
+            h.minimize(train);
+            h.toDot(dot);
+            System.out.println("#states: " + h.redStates.size());
+        //}
     }
 
 

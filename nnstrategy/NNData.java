@@ -59,6 +59,8 @@ public class NNData implements Data<NNData> {
     public Double rankWith(NNData b){
         if (tails.isEmpty() || b.tails.isEmpty())
             return 0.;
+        System.out.println(" >>> " + tails);
+        System.out.println(" >>> " + localDistances);
         int changes = getUnchanged(b) + b.getUnchanged(this);
         //System.out.println("Score: " + score + ", n: " + (r.getFutures() + b.getFutures()) + ", changes: " + changes);
         double score = changes / (double) (tails.size() + b.tails.size());
