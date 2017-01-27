@@ -117,6 +117,7 @@ public class Transition<T extends Data<T>> implements Iterable<Double>, Comparab
         double futureContribution = thisData.rankWith(tData);
         double localContribution = Math.abs(mu - t.getMu());
         return (futureContribution != 0.)?(localContribution):(localContribution * futureContribution);
+        //return thisData.rankWith(tData);
     }
 
     public boolean isAdiacenTo(Transition t){

@@ -12,7 +12,6 @@ package RAI;
 import RAI.nnstrategy.NNData;
 import RAI.nnstrategy.NNDataBuilder;
 import RAI.transition_clustering.Transition;
-
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -135,21 +134,21 @@ public class Hypothesis <T extends Data<T>>{
             // adding new couples where s plays the red role
             for (State<T> blueState : blueStates) {
                 CandidateMerge<T> pair = new CandidateMerge<>(s, blueState);
-                if (s.getData().isCompatibleWith(blueState.getData())){
+                //if (s.getData().isCompatibleWith(blueState.getData())){
                     System.out.println("Pushing " + pair);
                     s.addMerge(pair);
                     allowedMerges.add(pair);
-                }
+                //}
             }
         }else if (s.isWhite()) {
             blueStates.addLast(s);
             for (State<T> redState : redStates) {
                 CandidateMerge<T> pair = new CandidateMerge<>(redState, s);
-                if (redState.getData().isCompatibleWith(s.getData())) {
+                //if (redState.getData().isCompatibleWith(s.getData())) {
                     System.out.println("Pushing " + pair);
                     s.addMerge(pair);
                     allowedMerges.add(pair);
-                }
+                //}
             }
         }
     }
@@ -165,43 +164,43 @@ public class Hypothesis <T extends Data<T>>{
 
     // END OF CANDIDATE MERGES STUFF
 
-//    public void minimize(String samplePath){
-//        prefixTree(samplePath);
-//        root.promote().promote();
-//        System.out.println("Prefix Tree created");
-//        while (true){
-//            CandidateMerge<T> pair = chooseBestMerge();
-//            if (pair == null)
-//                break;
-//            System.out.println("Considering couple " + pair);
-//            State<T> rs = pair.getRedState();
-//            State<T> bs = pair.getBlueState();
-//            if (rs.getData().isCompatibleWith(bs.getData()))
-//                rs.mergeWith(bs);
-//            else {
-//                System.out.println("Discarding " + pair);
-//                bs.removeMerge(pair);
-//                if (! bs.hasMerges())
-//                    bs.promote();
-//            }
-//        }
-//    }
-
     public void minimize(String samplePath){
         prefixTree(samplePath);
         root.promote().promote();
         System.out.println("Prefix Tree created");
         while (true){
             CandidateMerge<T> pair = chooseBestMerge();
-            if (pair != null){
-                State<T> rs = pair.getRedState();
-                State<T> bs = pair.getBlueState();
+            if (pair == null)
+                break;
+            System.out.println("Considering couple " + pair);
+            State<T> rs = pair.getRedState();
+            State<T> bs = pair.getBlueState();
+            if (rs.getData().isCompatibleWith(bs.getData()))
                 rs.mergeWith(bs);
-            } else if (! blueStates.isEmpty()){
-                blueStates.getFirst().promote();
-            } else break;
+            else {
+                System.out.println("Discarding " + pair);
+                bs.removeMerge(pair);
+                if (! bs.hasMerges())
+                    bs.promote();
+            }
         }
     }
+
+//    public void minimize(String samplePath){
+//        prefixTree(samplePath);
+//        root.promote().promote();
+//        System.out.println("Prefix Tree created");
+//        while (true){
+//            CandidateMerge<T> pair = chooseBestMerge();
+//            if (pair != null){
+//                State<T> rs = pair.getRedState();
+//                State<T> bs = pair.getBlueState();
+//                rs.mergeWith(bs);
+//            } else if (! blueStates.isEmpty()){
+//                blueStates.getFirst().promote();
+//            } else break;
+//        }
+//    }
 
     private CandidateMerge<T> chooseBestMerge(){
         Double bestScore = Double.POSITIVE_INFINITY;
@@ -271,8 +270,8 @@ public class Hypothesis <T extends Data<T>>{
     public static void main(String[] args){
         //for (int i = 1; i < 68; i ++) {
             //System.out.println("PROB " + i);
-            String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/2statesV3/2statesV3.sample";
-            //String train = "/home/npellegrino/LEMMA/ydata-labeled-time-series-anomalies-v1_0/A1Benchmark/segmented/daily_seg_" + i + ".rai";
+            String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/2statesV3/2statesV3.man.sample";
+            //String train = "/home/npellegrino/LEMMA/ydata-labeled-time-series-anomalies-v1_0/A1Benchmark/slided/daily_" + 1 + ".rai";
             //double threshold = 0.41355618141549232;
             //double threshold = 0.18;
             //double threshold = 1.9;

@@ -80,7 +80,6 @@ public class NNData implements Data<NNData> {
     public boolean isCompatibleWith(NNData b){
         if (tails.isEmpty() || b.tails.isEmpty())
             return true;
-        double r = rankWith(b);
         return 1. - rankWith(b) > alpha;
     }
 
@@ -135,7 +134,7 @@ public class NNData implements Data<NNData> {
     // PRIVATE STUFF
 
     private int getUnchanged(NNData b){
-        // gets the number of tails whose elements are still in the same sample
+        // gets the number of tails that are still in the same sample
         int res = 0;
         for (Future rF : localDistances.keySet()){
             Double lD = localDistances.get(rF);
