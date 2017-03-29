@@ -72,57 +72,76 @@ public class State <T extends Data<T>>{
 
     public Transition<T> getOutgoing(double value) {
         for (Transition<T> t : outgoing){
-            // special case: singleton transitions
-            if (t.getLeftGuard() == t.getRightGuard() && value == t.getLeftGuard())
+            // special case: singleton transitions with matching value
+            if (t.getLeftGuard() == t.getRightGuard() && value == t.getMu())
                 return t;
-            if (value > t.getLeftGuard() && value <= t.getRightGuard())
+            // special case: singleton transitions with mismatching value
+            if (t.getLeftGuard() == t.getRightGuard() && value < t.getMu())
+                return null;
+            if (t.getLeftGuard() != t.getRightGuard() && value > t.getLeftGuard() && value <= t.getRightGuard())
                 return t;
             // value < LG || value > RG
-            if (value < t.getLeftGuard())
+            if (t.getLeftGuard() != t.getRightGuard() && value < t.getLeftGuard())
                 return null;
-            // value < LG --> keep iterating
+            // value > LG --> keep iterating
         }
         return null;
     }
 
     public Transition<T> getIngoing(double value){
         for (Transition<T> t : ingoing){
-            // special case: singleton transitions
-            if (t.getLeftGuard() == t.getRightGuard() && value == t.getLeftGuard())
+            // special case: singleton transitions with matching value
+            if (t.getLeftGuard() == t.getRightGuard() && value == t.getMu())
                 return t;
-            // general case
-            if (value > t.getLeftGuard() && value <= t.getRightGuard())
+            // special case: singleton transitions with mismatching value
+            if (t.getLeftGuard() == t.getRightGuard() && value < t.getMu())
+                return null;
+            if (t.getLeftGuard() != t.getRightGuard() && value > t.getLeftGuard() && value <= t.getRightGuard())
                 return t;
             // value < LG || value > RG
-            if (value < t.getLeftGuard())
+            if (t.getLeftGuard() != t.getRightGuard() && value < t.getLeftGuard())
                 return null;
-            // value < LG --> keep iterating
+            // value > LG --> keep iterating
         }
         return null;
     }
 
+//    public void addOutgoing(Transition<T> t){
+//        t.setSource(this);
+//        if (! outgoing.contains(t)) {
+//            outgoing.add(t);
+//            t.getDestination().addIngoing(t);
+//            if (isRed())
+//                fixAdiacents();
+////            boolean updated = false;
+////            for (Transition<T> c : outgoing)
+////                if (c.isAdiacenTo(t)) {
+////                    c.addAll(t);
+////                    if (c.getLeftGuard() >= t.getLeftGuard())
+////                        c.setLeftGuard(t.getLeftGuard());
+////                    if (c.getRightGuard() <= t.getRightGuard())
+////                        c.setRightGuard(t.getRightGuard());
+////                    updated = true;
+////                    break;
+////                }
+////            if (! updated){
+////                outgoing.add(t);
+////                t.getDestination().addIngoing(t);
+////            }
+//        }
+//    }
+
+
     public void addOutgoing(Transition<T> t){
         t.setSource(this);
         if (! outgoing.contains(t)) {
-//            outgoing.add(t);
-//            t.getDestination().addIngoing(t);
-            boolean updated = false;
-            for (Transition<T> c : outgoing)
-                if (c.isAdiacenTo(t)) {
-                    c.addAll(t);
-                    if (c.getLeftGuard() >= t.getLeftGuard())
-                        c.setLeftGuard(t.getLeftGuard());
-                    if (c.getRightGuard() <= t.getRightGuard())
-                        c.setRightGuard(t.getRightGuard());
-                    updated = true;
-                    break;
-                }
-            if (! updated){
-                outgoing.add(t);
-                t.getDestination().addIngoing(t);
-            }
+            outgoing.add(t);
+            t.getDestination().addIngoing(t);
+            if (isRed())
+                fixAdiacents();
         }
     }
+
 
     public void addIngoing(Transition<T> t){
         t.setDestination(this);
@@ -180,9 +199,10 @@ public class State <T extends Data<T>>{
         // if we change the order we could have adiacent transitions in a still correct result.
         Iterator<Transition<T>> outIterator = s.getOutgoingIterator();
         while (outIterator.hasNext()){
-            Transition<T> t = outIterator.next();
-            s.removeOutgoing(t);
-            fold(t);
+            // Transition<T> t = outIterator.next();
+            //s.removeOutgoing(t);
+            // fold(t);
+            fold(outIterator.next());
         }
         // eventual promotions
         if (isRed()) {
@@ -196,14 +216,95 @@ public class State <T extends Data<T>>{
         s.dispose();
     }
 
-    private void fold(Transition<T> t) {
+    private void fixAdiacents(){
+        Transition<T> prev = null;
+        for (Transition<T> t : outgoing){
+            if (prev == null)
+                prev = t;
+            else if (prev.isAdiacenTo(t)) {
+                prev.addAll(t);
+                if (prev.getLeftGuard() >= t.getLeftGuard())
+                    prev.setLeftGuard(t.getLeftGuard());
+                if (prev.getRightGuard() <= t.getRightGuard())
+                    prev.setRightGuard(t.getRightGuard());
+                removeOutgoing(t);
+            }else
+                prev = t;
+        }
+    }
+
+//    private void fixAndExpandOutgoings(){
+//        Transition<T> prev = null;
+//        for (Transition<T> t : outgoing){
+//            if (prev == null) {
+//                t.setLeftGuard(Double.NEGATIVE_INFINITY);
+//                prev = t;
+//            }else if (prev.isAdiacenTo(t)) {
+//                prev.addAll(t);
+//                if (prev.getLeftGuard() >= t.getLeftGuard())
+//                    prev.setLeftGuard(t.getLeftGuard());
+//                if (prev.getRightGuard() <= t.getRightGuard())
+//                    prev.setRightGuard(t.getRightGuard());
+//                removeOutgoing(t);
+//            }else{
+//                double l = t.getLeftGuard();
+//                double r = prev.getRightGuard();
+//                double d = (l - r) / 2.;
+//                t.setLeftGuard(l - d);
+//                prev.setRightGuard(l - d);
+//                prev = t;
+//            }
+//        }
+//        if (prev != null)
+//            prev.setRightGuard(Double.POSITIVE_INFINITY);
+//    }
+
+//    private void fold(Transition<T> t) {
+//        //System.out.println("Folding " + t + " in " + this);
+//        // CASE 1: non red state
+//        State<T> dest = t.getDestination();
+//        if (! isRed()) {
+//            addOutgoing(t);
+//        } else if (isLeaf()) {
+//            // CASE 2: red leaf
+//            addOutgoing(t);
+//            // updating guards (this become a sink state)
+//            t.setLeftGuard(Double.NEGATIVE_INFINITY);
+//            t.setRightGuard(Double.POSITIVE_INFINITY);
+//        } else {
+//            // CASE 3: red non leaf
+//            // find the overlapping transition.
+//            // Please note: t is a singleton transition, hence it represents just one value (mu)
+//            Transition<T> overlapped = getOutgoing(t.getMu());
+//            overlapped.addAll(t);
+//            // updating futures in the new son
+//            T destData = dest.getData();
+//            overlapped.getDestination().getData().updateWith(destData);
+//            destData.dispose();
+//            // fixing adiacent transitions
+//            fixAndExpandOutgoings();
+//            // recursive calls to handle the subtrees rooted in t's destination
+//            Iterator<Transition<T>> outIter = dest.getOutgoingIterator();
+//            State<T> ovDest = overlapped.getDestination();
+//            while (outIter.hasNext())
+//                ovDest.fold(outIter.next());
+//            dest.dispose();
+//        }
+//    }
+
+        private void fold(Transition<T> t) {
         //System.out.println("Folding " + t + " in " + this);
         // CASE 1: non red state
+        State<T> source = t.getSource();
         State<T> dest = t.getDestination();
+        if (equals(source))
+            return;
         if (! isRed()) {
+            source.removeOutgoing(t);
             addOutgoing(t);
         } else if (isLeaf()) {
             // CASE 2: red leaf
+            source.removeOutgoing(t);
             addOutgoing(t);
             // updating guards (this become a sink state)
             t.setLeftGuard(Double.NEGATIVE_INFINITY);
@@ -212,6 +313,7 @@ public class State <T extends Data<T>>{
             // CASE 3: red non leaf
             // find the overlapping transition.
             // Please note: t is a singleton transition, hence it represents just one value (mu)
+            source.removeOutgoing(t);
             Transition<T> overlapped = getOutgoing(t.getMu());
             overlapped.addAll(t);
             // updating futures in the new son
@@ -303,10 +405,11 @@ public class State <T extends Data<T>>{
                 String rightBra = (t.getRightGuard() == Double.POSITIVE_INFINITY)?("["):("]");
                 // we relabel the start state to 0 by convention
                 int lDestId = (t.getDestination().isRoot() && t.getDestination().getId() != 0)?(0):(t.getDestination().getId());
+                // LOCCHIO ALLA PRECISIONE !!!
                 rep += "\n\t" + lId + " -> " + lDestId +
-                        " [label=\"]" + String.format(Locale.ENGLISH, "%.2f", t.getLeftGuard()) +
-                        ", " + String.format(Locale.ENGLISH, "%.2f", t.getRightGuard()) + rightBra +
-                        " " + String.format(Locale.ENGLISH, "%.2f", t.getMu()) + "\"];";
+                        " [label=\"]" + String.format(Locale.ENGLISH, "%.10f", t.getLeftGuard()) +
+                        ", " + String.format(Locale.ENGLISH, "%.10f", t.getRightGuard()) + rightBra +
+                        " " + String.format(Locale.ENGLISH, "%.10f", t.getMu()) + "\"];";
             }
         return rep;
     }
@@ -362,12 +465,13 @@ public class State <T extends Data<T>>{
 
     public void cluster() {
         System.out.println("Clustering " + this);
-        PriorityQueue<TransitionMerge<T>> q = new PriorityQueue<>();
+        PriorityQueue<TransitionMerge<T>> q = new PriorityQueue<>(Collections.reverseOrder());
+        //PriorityQueue<TransitionMerge<T>> q = new PriorityQueue<>();
         // INIZIALIZATION
         inizializeClustering(q);
         // CLUSTERING
         performClustering(q);
-        // EXPANDING TRANSITIONS
+        // EXTENDING TRANSITIONS
         expandTransitions();
     }
 
@@ -386,18 +490,20 @@ public class State <T extends Data<T>>{
                     TransitionMerge<T> currM = new TransitionMerge<>(prevT, currT);
                     q.add(currM);
                     prevM = currM;
-                } else {
+                    prevT = currT;
+            } else {
                     TransitionMerge<T> currM = new TransitionMerge<>(prevM.getSecond(), currT);
                     currM.setPrevious(prevM);
                     prevM.setNext(currM);
                     q.add(currM);
                     prevM = currM;
-                }
+                    prevT = currT;
+            }
         }
     }
 
     private void performClustering(PriorityQueue<TransitionMerge<T>> q){
-        while (q.size() >= MAX_TRANS){
+        while (q.size() >= MAX_TRANSITIONS){
             TransitionMerge<T> m = q.poll();
             Transition<T> f = m.getFirst();
             Transition<T> s = m.getSecond();
@@ -421,6 +527,14 @@ public class State <T extends Data<T>>{
             }
         }
         q.clear();
+    }
+
+    public void expand(){
+        expandTransitions();
+        for (Transition<T> t : outgoing){
+            State<T> s = t.getDestination();
+            s.expand();
+        }
     }
 
     private void expandTransitions(){
@@ -485,7 +599,6 @@ public class State <T extends Data<T>>{
     private Collection<CandidateMerge> pairs;
     private Hypothesis<T> hypothesis;
     private boolean root;
-    private static final int MAX_TRANS = 2;
-
+    public static int MAX_TRANSITIONS;
 
 }

@@ -9,8 +9,7 @@
 
 package RAI;
 
-import RAI.nnstrategy.NNData;
-import RAI.nnstrategy.NNDataBuilder;
+import RAI.nnstrategy.*;
 import RAI.transition_clustering.Transition;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -31,13 +30,29 @@ public class Hypothesis <T extends Data<T>>{
 
 
     public Hypothesis(DataBuilder<T> dataBuilder){
+        this(dataBuilder, 0);
+    }
+
+    public Hypothesis(DataBuilder<T> dataBuilder, int maxTransitions){
+        this();
+        State.MAX_TRANSITIONS = maxTransitions;
         this.dataBuilder = dataBuilder;
         root = new State<>(this, dataBuilder.createInstance());
         root.setRoot();
+    }
+
+    public Hypothesis(){
+        State.MAX_TRANSITIONS = 0;
+        dataBuilder = null;
+        root = null;
         allowedMerges = new HashSet<>();
         redStates = new HashSet<>();
         //blueStates = new HashSet<>();
         blueStates = new LinkedList<>();
+    }
+
+    public void setMinTransitions(int minTransitions){
+        State.MAX_TRANSITIONS = minTransitions;
     }
 
     private static String[] suffix(String[] s, int i){
@@ -59,16 +74,24 @@ public class Hypothesis <T extends Data<T>>{
                 String[] values = line.split(" ");
                 State<T> state = root;
                 for (int i = 0; i < values.length; i++){
+//                    OLD BODY OF THE WHOLE FOR
+//                    double value = new Double(values[i]);
+//                    if (state.getOutgoing(value) == null) {
+//                        State<T> son = new State<>(this, dataBuilder.createInstance());
+//                        Transition<T> newT = new Transition<>(state, son , value);
+//                        state.addOutgoing(newT);
+//                        newT.getDestination().addIngoing(newT);
+//                    }
+//                    state.getData().add(suffix(values, i));
+//                    // a questo punto ci sarà sicuro la transizione uscente per value
+//                    state = state.getOutgoing(value).getDestination();
                     double value = new Double(values[i]);
-                    if (state.getOutgoing(value) == null) {
-                        State<T> son = new State<>(this, dataBuilder.createInstance());
-                        Transition<T> newT = new Transition<>(state, son , value);
-                        state.addOutgoing(newT);
-                        newT.getDestination().addIngoing(newT);
-                    }
+                    State<T> son = new State<>(this, dataBuilder.createInstance());
+                    Transition<T> newT = new Transition<>(state, son , value);
+                    state.addOutgoing(newT);
+                    newT.getDestination().addIngoing(newT);
                     state.getData().add(suffix(values, i));
-                    // a questo punto ci sarà sicuro la transizione uscente per value
-                    state = state.getOutgoing(value).getDestination();
+                    state = son;
                 }
             }
         } catch (IOException e) {
@@ -87,11 +110,9 @@ public class Hypothesis <T extends Data<T>>{
                 if (lMatcher.matches()){
                     //state id and mu
                     Integer sid = Integer.parseInt(lMatcher.group("sid"));
-                    Double mu = Double.parseDouble(lMatcher.group("mu"));
                     if (! states.containsKey(sid))
                         states.put(sid, new State<>(this, null, sid));
                     current = states.get(sid);
-                    current.setMu(mu);
                     if (sid.equals(0))
                         root = current;
                 } else {
@@ -101,11 +122,12 @@ public class Hypothesis <T extends Data<T>>{
                         Integer dsid = Integer.parseInt(lMatcher.group("dsid"));
                         Double lguard = Double.parseDouble(lMatcher.group("lguard"));
                         Double rguard = Double.parseDouble(lMatcher.group("rguard"));
+                        Double mu = Double.parseDouble(lMatcher.group("mu"));
                         //System.out.println("BUM " + ssid + " " + dsid + " " + lguard + " " + rguard);
                         if (! states.containsKey(dsid))
                             states.put(dsid, new State<>(this, null, dsid));
                         current = states.get(ssid);
-                        Transition<T> t = new Transition<>(current, states.get(dsid), lguard, rguard);
+                        Transition<T> t = new Transition<>(current, states.get(dsid), lguard, rguard, mu);
                         current.addOutgoing(t);
                         t.getDestination().addIngoing(t);
                     }
@@ -175,6 +197,8 @@ public class Hypothesis <T extends Data<T>>{
             System.out.println("Considering couple " + pair);
             State<T> rs = pair.getRedState();
             State<T> bs = pair.getBlueState();
+//            if (rs.getId() == 0 && bs.getId() == 8239)
+//                System.out.println("canc");
             if (rs.getData().isCompatibleWith(bs.getData()))
                 rs.mergeWith(bs);
             else {
@@ -186,24 +210,10 @@ public class Hypothesis <T extends Data<T>>{
         }
     }
 
-//    public void minimize(String samplePath){
-//        prefixTree(samplePath);
-//        root.promote().promote();
-//        System.out.println("Prefix Tree created");
-//        while (true){
-//            CandidateMerge<T> pair = chooseBestMerge();
-//            if (pair != null){
-//                State<T> rs = pair.getRedState();
-//                State<T> bs = pair.getBlueState();
-//                rs.mergeWith(bs);
-//            } else if (! blueStates.isEmpty()){
-//                blueStates.getFirst().promote();
-//            } else break;
-//        }
-//    }
 
     private CandidateMerge<T> chooseBestMerge(){
-        Double bestScore = Double.POSITIVE_INFINITY;
+        //Double bestScore = Double.POSITIVE_INFINITY;
+        Double bestScore = Double.NEGATIVE_INFINITY;
         CandidateMerge<T> bestMerge = null;
         for (CandidateMerge<T> c : allowedMerges){
             State<T> red = c.getRedState();
@@ -212,8 +222,10 @@ public class Hypothesis <T extends Data<T>>{
             T dr = red.getData();
             T db = blue.getData();
             Double score = dr.rankWith(db);
+            //System.out.println("CANC ME " + score);
             //System.out.println("Evaluated merge between <RED " + red.getId() + "> and <BLUE " + blue.getId() + "> with score " + score);
-            if (score < bestScore){
+            if (score > bestScore){
+            //if (score < bestScore){
                 bestMerge = c;
                 bestScore = score;
             }
@@ -224,13 +236,22 @@ public class Hypothesis <T extends Data<T>>{
         return bestMerge;
     }
 
+    public Hypothesis<T> expand(){
+        root.expand();
+        return this;
+    }
+
+    public State<T> getRoot(){
+        return root;
+    }
+
     public void toDot(String path){
         try {
             Set<State<T>> visited = new HashSet<>();
             LinkedList<State<T>> toVisit = new LinkedList<>();
             toVisit.addFirst(root);
             FileWriter writer = new FileWriter(path, false);
-            writer.write("digraph DFA {");
+            writer.write("digraph DFA {\nrankdir=LR");
             while (! toVisit.isEmpty()) {
                 State<T> s = toVisit.removeFirst();
                 if (! visited.contains(s)) {
@@ -257,34 +278,11 @@ public class Hypothesis <T extends Data<T>>{
     private Set<State<T>> redStates;
     private LinkedList<State<T>> blueStates;
     private Set<CandidateMerge<T>> allowedMerges;
-    private final DataBuilder<T> dataBuilder;
+    private DataBuilder<T> dataBuilder;
     private static final Pattern stateRE = Pattern.compile(
-            "^(?<sid>\\d+) \\[shape=(circle|doublecircle), label=\\\"\\d+\\\\n(?<mu>-?\\d*.?\\d+)\\\"\\];$");
+            "^(?<sid>\\d+) \\[shape=(circle|doublecircle), label=\\\"\\d+\\\"\\];$");
     private static final Pattern transRE = Pattern.compile(
             "^\\t(?<ssid>\\d+) -> (?<dsid>\\d+) \\[label=\"(\\[|\\])(?<lguard>(-?\\d*\\.?\\d+)|(-Infinity)), " +
-                    "(?<rguard>(-?\\d*.?\\d+)|(Infinity))(\\]|\\[)\\\"\\];$");
-
-    //MAIN ROUTINES
-
-    //unit test
-    public static void main(String[] args){
-        //for (int i = 1; i < 68; i ++) {
-            //System.out.println("PROB " + i);
-            String train = "/home/npellegrino/LEMMA/state_merging_regressor/data/suite/2statesV3/2statesV3.man.sample";
-            //String train = "/home/npellegrino/LEMMA/ydata-labeled-time-series-anomalies-v1_0/A1Benchmark/slided/daily_" + 1 + ".rai";
-            //double threshold = 0.41355618141549232;
-            //double threshold = 0.18;
-            //double threshold = 1.9;
-            String dot = train + ".DOT";
-            NNDataBuilder n = new NNDataBuilder(0.05);
-            Hypothesis<NNData> h = new Hypothesis<>(n);
-            //VotingDataBuilder v = new VotingDataBuilder(0.12, 0.2);
-            //Hypothesis<VotingData> h = new Hypothesis<>(v);
-            h.minimize(train);
-            h.toDot(dot);
-            System.out.println("#states: " + h.redStates.size());
-        //}
-    }
-
+                    "(?<rguard>(-?\\d*.?\\d+)|(Infinity))(\\]|\\[) (?<mu>-?\\d*\\.?\\d+)\\\"\\];$");
 
 }

@@ -17,7 +17,7 @@ public interface Data <T extends Data> {
 
     public void updateWith(T b);
 
-    public  Double rankWith(T b);
+    public Double rankWith(T b);
 
     public boolean isCompatibleWith(T b);
 

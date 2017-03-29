@@ -30,15 +30,16 @@ public class Transition<T extends Data<T>> implements Iterable<Double>, Comparab
         this.leftguard = Double.POSITIVE_INFINITY;
     }
 
-    public Transition(State<T> source, State<T> destination, Double leftguard, Double rightguard){
+    public Transition(State<T> source, State<T> destination, Double leftguard, Double rightguard, Double value){
         this.source = source;
         this.destination = destination;
         this.leftguard = leftguard;
         this.rightguard = rightguard;
-        this.mu = 0.;
+        this.mu = value;
         this.oldmu = 0.;
         this.sigmasquared = 0.;
         this.oldsigmasquared = 0.;
+        this.values = new LinkedList<>();
     }
 
     public Transition(State<T> source, State<T> destination, double value) {
@@ -106,18 +107,22 @@ public class Transition<T extends Data<T>> implements Iterable<Double>, Comparab
     }
 
     public void addAll(Transition<T> t){
+        // I need to do in that way to avoid concurrent modification exceptions
+        Collection<Double> vs = new LinkedList<>();
         for (Double v : t)
-            this.add(v);
+            vs.add(v);
+        for (Double v : vs)
+            add(v);
     }
 
     public double getCloseness(Transition<T> t){
         // future based distance used for clustering purposes
         T thisData = destination.getData();
         T tData = t.getDestination().getData();
-        double futureContribution = thisData.rankWith(tData);
-        double localContribution = Math.abs(mu - t.getMu());
-        return (futureContribution != 0.)?(localContribution):(localContribution * futureContribution);
-        //return thisData.rankWith(tData);
+        //double futureContribution = thisData.rankWith(tData);
+        //double localContribution = Math.abs(mu - t.getMu());
+        //return (futureContribution != 0.)?(localContribution):(localContribution * futureContribution);
+        return thisData.rankWith(tData);
     }
 
     public boolean isAdiacenTo(Transition t){

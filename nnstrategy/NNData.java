@@ -57,9 +57,15 @@ public class NNData implements Data<NNData> {
 
     @Override
     public Double rankWith(NNData b){
-        if (tails.isEmpty() || b.tails.isEmpty())
+        if (tails.isEmpty() && b.tails.isEmpty())
             return 0.;
-        int unChanged = getUnchanged(b) + b.getUnchanged(this);
+        if (tails.isEmpty() || b.tails.isEmpty())
+            //return Double.POSITIVE_INFINITY;
+            return 1.;
+        //double unChangedB = getUnchanged(b);
+        //double unchangedT = b.getUnchanged(this);
+        //double unChanged = unChangedB + unchangedT;
+        double unChanged = getUnchanged(b) + b.getUnchanged(this);
         int nr = tails.size();
         int nb = b.tails.size();
         int n = nr + nb;
@@ -73,14 +79,19 @@ public class NNData implements Data<NNData> {
         double z = Math.sqrt(n) * (score - mu) / Math.sqrt(sigma);
         // return pnorm(z) and not 1 - pnorm(z) because we know that RAI has a minimization function
         // by minimizing pnorm(z) we maximize 1 - pnorm(z)
-        return pnorm(z);
+        //double pvalue = 1. - pnorm(z);
+        //return pnorm(z);
+        return 1 - pnorm(z);
     }
 
     @Override
     public boolean isCompatibleWith(NNData b){
-        if (tails.isEmpty() || b.tails.isEmpty())
-            return true;
-        return 1. - rankWith(b) > alpha;
+//        if (tails.isEmpty() && b.tails.isEmpty())
+//            return true;
+//        if (tails.isEmpty() || b.tails.isEmpty())
+//            return false;
+        //return 1. - rankWith(b) > alpha;
+        return rankWith(b) > alpha;
     }
 
     @Override
@@ -93,32 +104,24 @@ public class NNData implements Data<NNData> {
 
     public NNData(double alpha){
         localDistances = new HashMap<>();
-        tails = new HashSet<>();
+        tails = new LinkedList<>();
         this.alpha = alpha;
     }
 
     public Double closeness(Future f1, Future f2){
         // prefix absolute distance
-        if (f1 == null || f2 == null)
+        if (f1 == null && f2 == null)
             return 0.;
-//        if (f1 == null) {
-//            String[] values = new String[f2.size()];
-//            for (int i = 0; i < f2.size(); i ++)
-//                values[i] = "0.0";
-//            f1 = Future.parse(values);
-//        }
-//        if (f2 == null) {
-//            String[] values = new String[f1.size()];
-//            for (int i = 0; i < f1.size(); i ++)
-//                values[i] = "0.0";
-//            f2 = Future.parse(values);
-//        }
+        if (f1 == null || f2 == null)
+            return Double.POSITIVE_INFINITY;
         // now bot f1 and f2 are not null
         Iterator<Double> vs2 = f2.iterator();
         Double result = 0.;
         int n = 0;
         for (Double v1 : f1){
-            if (! vs2.hasNext())
+            // rimuovi la seconda clausola di questo check, è stata messa solo per debug
+            if (! vs2.hasNext() || n == 5)
+            //if (! vs2.hasNext())
                 break;
             Double v2 = vs2.next();
             //result += (v1 - v2) * (v1 - v2);
@@ -127,25 +130,39 @@ public class NNData implements Data<NNData> {
         }
 //        if (n == 0)
 //            return Double.POSITIVE_INFINITY;
-        return result / ((double) n);
+//        return result / ((double) n);
+        return result;
     }
 
 
     // PRIVATE STUFF
 
-    private int getUnchanged(NNData b){
+    private double getUnchanged(NNData b){
         // gets the number of tails that are still in the same sample
-        int res = 0;
-        for (Future rF : localDistances.keySet()){
+        double res = 0.;
+        for (Future rF : tails) {
             Double lD = localDistances.get(rF);
-            boolean changed= false;
-            for (Future bF : b.tails)
-                if (closeness(rF, bF) < lD){
-                    changed = true;
+            double contribution = 1.;
+            for (Future bF : b.tails) {
+                double close = closeness(rF, bF);
+                if (close == 0.) {
+                    // in questo caso finiamo perché la distanza non può scendere sotto lo zero
+                    contribution = .5;
                     break;
                 }
-            if (! changed)
-                res += 1;
+                if (close < lD)
+                    // close è più bassa strettamente di lD, ma è diversa da zero.
+                    // in questo caso close potrebbe diventare zero successivamente, e quindi contribution passare
+                    // da 0 a 0.5, ergo non possiamo finirla quà
+                    contribution = .0;
+                else if (close == lD && contribution != 0.)
+                    // questo caso è quando non abbiamo ancora trovato un close minore strettamente, ma almeno uno
+                    // che è pari alla distanza locale. A questo punto non possiamo finire perché potremmo
+                    // trovare successivi candidati che hanno distanze strettamente inferiori. Una volta che li trovia
+                    // mo non possiamo più considerare questo branch
+                    contribution = .5;
+            }
+            res += contribution;
         }
         return res;
     }
@@ -178,7 +195,7 @@ public class NNData implements Data<NNData> {
 
 
     private Map<Future, Double> localDistances;
-    private Set<Future> tails;
+    private List<Future> tails;
     private Double alpha;
 
 }
