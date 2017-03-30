@@ -197,8 +197,8 @@ public class Hypothesis <T extends Data<T>>{
             System.out.println("Considering couple " + pair);
             State<T> rs = pair.getRedState();
             State<T> bs = pair.getBlueState();
-//            if (rs.getId() == 0 && bs.getId() == 8239)
-//                System.out.println("canc");
+            if (rs.getId() == 0 && bs.getId() == 1662)
+                System.out.println("canc");
             if (rs.getData().isCompatibleWith(bs.getData()))
                 rs.mergeWith(bs);
             else {
@@ -208,6 +208,7 @@ public class Hypothesis <T extends Data<T>>{
                     bs.promote();
             }
         }
+        System.out.println("States: " + redStates.size());
     }
 
 

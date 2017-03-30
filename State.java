@@ -473,6 +473,8 @@ public class State <T extends Data<T>>{
         performClustering(q);
         // EXTENDING TRANSITIONS
         expandTransitions();
+//        notQueuedClustering();
+//        expandTransitions();
     }
 
     private void inizializeClustering(PriorityQueue<TransitionMerge<T>> q){
@@ -527,6 +529,73 @@ public class State <T extends Data<T>>{
             }
         }
         q.clear();
+    }
+
+
+
+    private List<TransitionMerge<T>> getTransitionMerges(){
+        List<TransitionMerge<T>> tms = new LinkedList<>();
+        Iterator<Transition<T>> fanout = outgoing.iterator();
+        Transition<T> prevT = null;
+        TransitionMerge<T> prevM = null;
+        while (fanout.hasNext()){
+            Transition<T> currT = fanout.next();
+            if (prevT == null)
+                prevT = currT;
+            else if (prevT.isOverlappedBy(currT) || prevT.isAdiacenTo(currT))
+                addToCluster(prevT, currT);
+            else if (prevM == null){
+                    TransitionMerge<T> currM = new TransitionMerge<>(prevT, currT);
+                    tms.add(currM);
+                    prevM = currM;
+                    prevT = currT;
+            } else {
+                    TransitionMerge<T> currM = new TransitionMerge<>(prevM.getSecond(), currT);
+                    currM.setPrevious(prevM);
+                    prevM.setNext(currM);
+                    tms.add(currM);
+                    prevM = currM;
+                    prevT = currT;
+            }
+        }
+        return tms;
+    }
+
+    private TransitionMerge<T> pickBestTransitionMerge(List<TransitionMerge<T>> candidates){
+        TransitionMerge<T> bestMerge = null;
+        double bestScore = -1.;
+        for (TransitionMerge<T> cnd : candidates){
+            double score = cnd.getScore();
+            if (score > bestScore){
+                bestScore = score;
+                bestMerge = cnd;
+            }
+        }
+        candidates.remove(bestMerge);
+        return bestMerge;
+    }
+
+    private void notQueuedClustering(){
+        List<TransitionMerge<T>> candidates = getTransitionMerges();
+        while (candidates.size() >= MAX_TRANSITIONS){
+            // choose most pvalued merge
+            TransitionMerge<T> m = pickBestTransitionMerge(candidates);
+            Transition<T> f = m.getFirst();
+            Transition<T> s = m.getSecond();
+            if (addToCluster(f, s)) {
+                TransitionMerge<T> p = m.getPrevious();
+                TransitionMerge<T> n = m.getNext();
+                if (p != null){
+                    p.setNext(n);
+                    p.setSecond(f);
+                }
+                if (n != null){
+                    n.setPrevious(p);
+                    n.setFirst(f);
+                }
+            }
+        }
+        candidates.clear();
     }
 
     public void expand(){
